@@ -65,7 +65,7 @@ jobs:
           pacboy: >-
             toolchain:p
           cache: false
-        timeout-minutes: 45  # 增加到45分钟
+        timeout-minutes: 45
 
       - name: Install G++ on Windows ARM64
         if: runner.os == 'Windows' && matrix.architecture == 'arm64'
@@ -79,7 +79,7 @@ jobs:
           pacboy: >-
             toolchain:p
           cache: false
-        timeout-minutes: 45  # 增加到45分钟
+        timeout-minutes: 45
 
       # macOS安装改进
       - name: Install G++ on macOS
@@ -114,8 +114,13 @@ jobs:
                 -DCMAKE_CXX_COMPILER=g++-13 \
                 -DCMAKE_OSX_ARCHITECTURES=arm64
 
+      - name: Configure CMake on Windows
+        if: runner.os == 'Windows'
+        run: |
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
       - name: Configure CMake on other platforms
-        if: (runner.os != 'macOS') && !(runner.os == 'Linux' && matrix.architecture == 'arm64') && !(runner.os == 'Windows')
+        if: runner.os != 'Windows' && runner.os != 'macOS' && !(runner.os == 'Linux' && matrix.architecture == 'arm64')
         run: |
           cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
