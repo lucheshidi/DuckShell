@@ -1,8 +1,18 @@
 // plugins/plugins_manager.cpp
 #include "plugins_manager.h"
 #include "../header.h"
+#ifdef _WIN32
+// Windows平台使用替代方案
+#include <windows.h>
+#include <tchar.h>
+// 或者使用std::filesystem (需要C++17)
+#include <filesystem>
+#else
+// Unix/Linux平台
 #include <dirent.h>
 #include <sys/stat.h>
+#endif
+
 
 // 定义静态成员变量
 std::map<std::string, bool> PluginManager::installed_plugins;
