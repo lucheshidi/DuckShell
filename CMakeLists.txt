@@ -2,11 +2,16 @@
 cmake_minimum_required(VERSION 3.15)
 project(DuckShell)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 #set(CMAKE_EXE_LINKER_FLAGS -static)
 # 或者改为条件设置，排除Apple平台
 if(NOT APPLE)
     set(CMAKE_EXE_LINKER_FLAGS -static)
+endif()
+
+if(MINGW)
+   # 可能需要额外的链接库
+   target_link_libraries(DuckShell stdc++fs)
 endif()
 
 add_executable(DuckShell
