@@ -21,8 +21,12 @@ jobs:
             architecture: arm64
           - os: windows-latest
             architecture: amd64
+          - os: windows-latest
+            architecture: arm64
           - os: macos-latest
             architecture: amd64
+          - os: macos-latest
+            architecture: arm64
 
     steps:
       - uses: actions/checkout@v6
@@ -49,9 +53,8 @@ jobs:
           sudo apt-get install -y g++-aarch64-linux-gnu
           echo "G++ ARM64 installation completed with exit code $?"
 
-      # Windows安装改进
-      - name: Install G++ on Windows
-        if: runner.os == 'Windows'
+      - name: Install G++ on Windows AMD64
+        if: runner.os == 'Windows' && matrix.architecture == 'amd64'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -59,6 +62,19 @@ jobs:
           install: >-
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
+          pacboy: >-
+            toolchain:p
+        timeout-minutes: 30
+
+      - name: Install G++ on Windows ARM64
+        if: runner.os == 'Windows' && matrix.architecture == 'arm64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-aarch64-gcc
+            mingw-w64-aarch64-cmake
           pacboy: >-
             toolchain:p
         timeout-minutes: 30
@@ -81,15 +97,23 @@ jobs:
                 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
                 -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
 
-      - name: Configure CMake on macOS
-        if: runner.os == 'macOS'
+      - name: Configure CMake on macOS AMD64
+        if: runner.os == 'macOS' && matrix.architecture == 'amd64'
         run: |
           cmake -B ${{github.workspace}}/build \
                 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
                 -DCMAKE_CXX_COMPILER=g++-13
 
+      - name: Configure CMake on macOS ARM64
+        if: runner.os == 'macOS' && matrix.architecture == 'arm64'
+        run: |
+          cmake -B ${{github.workspace}}/build \
+                -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+                -DCMAKE_CXX_COMPILER=g++-13 \
+                -DCMAKE_OSX_ARCHITECTURES=arm64
+
       - name: Configure CMake on other platforms
-        if: (runner.os != 'macOS') && !(runner.os == 'Linux' && matrix.architecture == 'arm64')
+        if: (runner.os != 'macOS') && !(runner.os == 'Linux' && matrix.architecture == 'arm64') && !(runner.os == 'Windows')
         run: |
           cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
