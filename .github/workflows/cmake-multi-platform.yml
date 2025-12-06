@@ -21,8 +21,7 @@ jobs:
             architecture: arm64
           - os: windows-latest
             architecture: amd64
-          - os: windows-latest
-            architecture: arm64
+          # 暂时移除Windows ARM64支持，因为MSYS2不提供预编译包
           - os: macos-latest
             architecture: amd64
           - os: macos-latest
@@ -65,21 +64,7 @@ jobs:
           pacboy: >-
             toolchain:p
           cache: false
-        timeout-minutes: 45
-
-      - name: Install G++ on Windows ARM64
-        if: runner.os == 'Windows' && matrix.architecture == 'arm64'
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: false
-          install: >-
-            mingw-w64-aarch64-gcc
-            mingw-w64-aarch64-cmake
-          pacboy: >-
-            toolchain:p
-          cache: false
-        timeout-minutes: 45
+        timeout-minutes: 60  # 增加超时时间
 
       # macOS安装改进
       - name: Install G++ on macOS
