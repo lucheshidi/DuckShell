@@ -8,6 +8,7 @@ on:
 
 env:
   BUILD_TYPE: Release
+  CMAKE_GENERATOR: MinGW Makefiles
 
 jobs:
   build:
@@ -102,8 +103,7 @@ jobs:
       - name: Configure CMake on Windows
         if: runner.os == 'Windows'
         run: |
-          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
-
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G "MinGW Makefiles"
       - name: Configure CMake on other platforms
         if: runner.os != 'Windows' && runner.os != 'macOS' && !(runner.os == 'Linux' && matrix.architecture == 'arm64')
         run: |
