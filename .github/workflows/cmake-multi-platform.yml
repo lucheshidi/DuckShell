@@ -78,7 +78,14 @@ jobs:
         working-directory: ${{github.workspace}}/build
         run: ctest -C ${{env.BUILD_TYPE}}
 
-      - name: Clean cache
+      - name: Clean cache on Unix-like systems
+        if: runner.os != 'Windows'
         run: |
           rm -rf ${{github.workspace}}/build
+
+      - name: Clean cache on Windows
+        if: runner.os == 'Windows'
+        run: |
+          if exist "${{github.workspace}}\build" rmdir /s /q "${{github.workspace}}\build"
+        shell: cmd
 
