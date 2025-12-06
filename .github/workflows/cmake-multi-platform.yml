@@ -24,7 +24,7 @@ jobs:
         with:
           cmake-version: 'latest'
 
-      - name: Install G++
+      - name: Install G++ on Linux
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -32,21 +32,27 @@ jobs:
           echo "G++ installation completed with exit code $?"
       
 
-      - name: Install G++
+      # Windows安装改进
+      - name: Install G++ on Windows
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
-          update: true
+          msystem: MINGW64
+          update: false
           install: >-
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-cmake
+          pacboy: >-
+            toolchain:p
+        timeout-minutes: 20
 
-      - name: Install G++
+      # macOS安装改进
+      - name: Install G++ on macOS
         if: runner.os == 'macOS'
         run: |
-          brew update || echo "Brew update failed, continuing anyway..."
           brew install gcc
           g++ -v
+        timeout-minutes: 15
       
 
       - name: Configure CMake

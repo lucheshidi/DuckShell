@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
 #else
         // Unix/Linux系统下创建目录，设置权限为0755
         mkdir(duckshell_dir.c_str(), 0755);
-        chown(plugins_dir.c_str(), 0755);
+        chmod(plugins_dir.c_str(), 0755);
 #endif
         // 创建空的插件列表文件
         std::ofstream outfile(plugins_file);
