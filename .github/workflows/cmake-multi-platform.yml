@@ -53,10 +53,19 @@ jobs:
           brew install gcc
           g++ -v
         timeout-minutes: 15
-      
 
-      - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+      - name: Configure CMake on macOS
+        if: runner.os == 'macOS'
+        run: |
+          cmake -B ${{github.workspace}}/build \
+                -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+                -DCMAKE_CXX_COMPILER=g++-13
+
+      - name: Configure CMake on other platforms
+        if: runner.os != 'macOS'
+        run: |
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
