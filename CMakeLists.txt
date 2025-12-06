@@ -20,8 +20,10 @@ add_executable(DuckShell
         src/global_vars.h
 )
 
-target_link_libraries(DuckShell wininet)
-
+# Windows平台需要链接WinINet库
+if(WIN32)
+    target_link_libraries(DuckShell wininet ws2_32)
+endif()
 
 # 在CMakeLists.txt中添加
 if(MINGW)
