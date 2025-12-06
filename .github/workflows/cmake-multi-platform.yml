@@ -51,8 +51,10 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc
-          g++ -v
+          g++-13 --version || echo "GCC 13 not found, checking available versions..."
+          g++ --version
         timeout-minutes: 15
+
 
 
       - name: Configure CMake on macOS
