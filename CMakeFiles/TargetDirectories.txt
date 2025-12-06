@@ -1,0 +1,3 @@
+F:/Programming/jyx-program/C++/DuckShell/CMakeFiles/DuckShell.dir
+F:/Programming/jyx-program/C++/DuckShell/CMakeFiles/edit_cache.dir
+F:/Programming/jyx-program/C++/DuckShell/CMakeFiles/rebuild_cache.dir

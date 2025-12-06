@@ -1,0 +1,23 @@
+# CMakeLists.txt
+cmake_minimum_required(VERSION 4.0)
+project(DuckShell)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_EXE_LINKER_FLAGS -static)
+
+add_executable(DuckShell
+        src/main.cpp
+        src/header.h
+        src/shell/main_shell.cpp
+        src/plugins/plugins_manager.cpp
+        src/plugins/plugins_manager.h
+        src/plugins/plugins_interface.h
+        src/global_vars.cpp
+        src/global_vars.h
+)
+
+# Windows平台需要链接WinINet库
+if(WIN32)
+    # 确保正确的库链接顺序
+    target_link_libraries(DuckShell wininet ws2_32)
+endif()
