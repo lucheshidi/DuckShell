@@ -18,6 +18,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          clean: true
 
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v2
@@ -74,3 +76,8 @@ jobs:
       - name: Test
         working-directory: ${{github.workspace}}/build
         run: ctest -C ${{env.BUILD_TYPE}}
+
+      - name: Clean cache
+        run: |
+          rm -rf ${{github.workspace}}/build
+
