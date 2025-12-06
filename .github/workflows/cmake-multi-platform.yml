@@ -112,12 +112,21 @@ jobs:
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-      - name: List build directory contents
+      - name: List build directory contents on Unix-like systems
+        if: runner.os != 'Windows'
         run: |
           echo "Build directory contents:"
           ls -la ${{github.workspace}}/build/
           echo "All files in build directory:"
           find ${{github.workspace}}/build -type f
+
+      - name: List build directory contents on Windows
+        if: runner.os == 'Windows'
+        run: |
+          echo "Build directory contents:"
+          dir ${{github.workspace}}\build\
+          powershell -Command "Get-ChildItem -Recurse ${{github.workspace}}\build\"
+      
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v5
