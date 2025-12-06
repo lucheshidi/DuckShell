@@ -112,6 +112,13 @@ jobs:
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
+      - name: List build directory contents
+        run: |
+          echo "Build directory contents:"
+          ls -la ${{github.workspace}}/build/
+          echo "All files in build directory:"
+          find ${{github.workspace}}/build -type f
+
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v5
         with:
