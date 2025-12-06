@@ -1,10 +1,15 @@
 #include <algorithm>
-#include <filesystem>
-#include <filesystem>
+//#include <filesystem>
 #include <iomanip>
 
 #include "../header.h"
 #include "../plugins/plugins_manager.h"
+
+#ifndef _WIN32
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
+
 
 // 字符串分割辅助函数
 std::vector<std::string> split(const std::string& str, char delimiter) {
@@ -45,9 +50,9 @@ void execute(const std::string& input) {
         if (cmd.size() == 1) {
             // cd without arguments
 #ifdef _WIN32
-            dir_now = "C:"; // Windows root
+            dir_now = getenv("USERPROFILE"); // Windows root
 #else
-            dir_now = "/"; // Unix root
+            dir_now = "~"; // Unix root
 #endif
             return;
         }
@@ -86,13 +91,16 @@ void execute(const std::string& input) {
                     new_path = "/";
 #endif
                 }
-            } else if (cmd[1] == ".") {
+            }
+            else if (cmd[1] == ".") {
                 new_path = dir_now;
-            } else {
+            }
+            else {
                 // Handle path concatenation
                 if (dir_now.back() == '/' || dir_now.back() == '\\') {
                     new_path = dir_now + cmd[1];
-                } else {
+                }
+                else {
                     new_path = dir_now + path_separator + cmd[1];
                 }
             }
@@ -104,12 +112,13 @@ void execute(const std::string& input) {
 
             if (is_directory_exists(new_path)) {
                 dir_now = new_path;
-            } else {
+            }
+        else {
                 printf(RED << BOLD << "Directory does not exist." << RESET);
             }
         }
 
-    if (cmd[0] == "ls" | cmd[0] == "dir" | cmd[0] == "ListFiles") {
+    if (cmd[0] == "ls" || cmd[0] == "dir" || cmd[0] == "ListFiles") {
 #ifdef _WIN32
         try {
             std::string searchPath = dir_now + "\\*";
@@ -131,8 +140,24 @@ void execute(const std::string& input) {
             std::cerr << RED << BOLD << "Error accessing directory." << RESET << std::endl;
         }
 #else
-        // Linux/Unix 实现可以使用 dirent.h
-        // 这里暂时留空或者实现相应的POSIX版本
+        // Linux/Unix 实现
+        DIR* dir = opendir(dir_now.c_str());
+        if (dir) {
+            struct dirent* entry;
+            while ((entry = readdir(dir)) != nullptr) {
+                std::string name(entry->d_name);
+                if (name != "." && name != "..") {
+                    struct stat statbuf;
+                    std::string fullPath = dir_now + "/" + name;
+                    if (stat(fullPath.c_str(), &statbuf) == 0) {
+                        std::string type = S_ISDIR(statbuf.st_mode) ? "<DIR>   " : "<FILE>  ";
+                        std::cout << std::left << std::setw(6) << type
+                                 << " " << name << std::endl;
+                    }
+                }
+            }
+            closedir(dir);
+        }
 #endif
     }
     // 在 execute 函数中添加插件管理命令处理
@@ -144,13 +169,17 @@ void execute(const std::string& input) {
 
         if (cmd[1] == "install" && cmd.size() == 3) {
             PluginManager::installPlugin(cmd[2]);
-        } else if (cmd[1] == "uninstall" && cmd.size() == 3) {
+        }
+        else if (cmd[1] == "uninstall" && cmd.size() == 3) {
             PluginManager::uninstallPlugin(cmd[2]);
-        } else if (cmd[1] == "list") {
+        }
+        else if (cmd[1] == "list") {
             PluginManager::listInstalledPlugins();
-        } else if (cmd[1] == "available") {
+        }
+        else if (cmd[1] == "available") {
             PluginManager::listAvailablePlugins();
-        } else {
+        }
+        else {
             printf(RED << BOLD << "Invalid plugin command or missing argument." << RESET);
         }
     }

@@ -20,13 +20,17 @@ add_executable(DuckShell
         src/global_vars.h
 )
 
-# Windows平台需要链接WinINet库
-if(WIN32)
-    # 确保正确的库链接顺序
-    target_link_libraries(DuckShell wininet ws2_32)
+target_link_libraries(DuckShell wininet)
+
+
+# 在CMakeLists.txt中添加
+if(MINGW)
+    # 禁用可能引起问题的特性
+    add_definitions(-D_WIN32_WINNT=0x0601)  # Windows 7及以上
 endif()
 
-if(MINGW)
-   # 可能需要额外的链接库
-   target_link_libraries(DuckShell stdc++fs)
+
+# 添加预处理器定义
+if(WIN32)
+    add_definitions(-D_WIN32)
 endif()

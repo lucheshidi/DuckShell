@@ -1,16 +1,20 @@
 // plugins/plugins_manager.cpp
 #include "plugins_manager.h"
-#include "../header.h"
-#ifdef _WIN32
-// Windows平台使用替代方案
-#include <windows.h>
-#include <tchar.h>
-// 或者使用std::filesystem (需要C++17)
-#include <filesystem>
-#else
-// Unix/Linux平台
-#include <dirent.h>
+#include "../global_vars.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
 #include <sys/stat.h>
+
+#ifdef _WIN32
+    #include <windows.h>
+    #include <wininet.h>
+    // 移除可能导致问题的头文件
+    // #include <filesystem>  // 注释掉这行
+    #include <vector>
+#else
+    #include <dirent.h>
+    #include <vector>
 #endif
 
 
@@ -18,6 +22,33 @@
 std::map<std::string, bool> PluginManager::installed_plugins;
 std::string PluginManager::repository_url = "";
 
+#ifdef _WIN32
+std::vector<std::string> PluginManager::getDirectoryContents(const std::string& path) {
+    std::vector<std::string> contents;
+
+    // 确保路径格式正确
+    std::string searchPath = path;
+    if (searchPath.back() != '\\' && searchPath.back() != '/') {
+        searchPath += "\\";
+    }
+    searchPath += "*";
+
+    WIN32_FIND_DATAA findData;
+    HANDLE hFind = FindFirstFileA(searchPath.c_str(), &findData);
+
+    if (hFind != INVALID_HANDLE_VALUE) {
+        do {
+            std::string name(findData.cFileName);
+            if (name != "." && name != "..") {
+                contents.push_back(name);
+            }
+        } while (FindNextFileA(hFind, &findData));
+        FindClose(hFind);
+    }
+
+    return contents;
+}
+#else
 std::vector<std::string> PluginManager::getDirectoryContents(const std::string& path) {
     std::vector<std::string> contents;
     DIR* dir = opendir(path.c_str());
@@ -35,13 +66,14 @@ std::vector<std::string> PluginManager::getDirectoryContents(const std::string& 
 
     return contents;
 }
+#endif
 
 void PluginManager::loadPlugins() {
     std::string pluginsListFile = home_dir + "/duckshell/plugins.ls";
     std::ifstream infile(pluginsListFile);
 
     if (!infile.is_open()) {
-        printf(RED << BOLD << "Failed to open plugins list file." << RESET);
+        printf("Failed to open plugins list file.\n");
         return;
     }
 
@@ -75,10 +107,10 @@ void PluginManager::installPlugin(const std::string& pluginName) {
             outfile.close();
         }
 
-        printf(GREEN << BOLD << "Plugin '" << pluginName << "' installed successfully." << RESET);
+        printf("Plugin '%s' installed successfully.\n", pluginName.c_str());
     }
     else {
-        printf(RED << BOLD << "Plugin '" << pluginName << "' not found in repository." << RESET);
+        printf("Plugin '%s' not found in repository.\n", pluginName.c_str());
     }
 }
 
@@ -108,10 +140,10 @@ void PluginManager::uninstallPlugin(const std::string& pluginName) {
             rename(tempFile.c_str(), pluginsListFile.c_str());
         }
 
-        printf(GREEN << BOLD << "Plugin '" << pluginName << "' uninstalled successfully." << RESET);
+        printf("Plugin '%s' uninstalled successfully.\n", pluginName.c_str());
     }
     else {
-        printf(RED << BOLD << "Plugin '" << pluginName << "' is not installed." << RESET);
+        printf("Plugin '%s' is not installed.\n", pluginName.c_str());
     }
 }
 
@@ -120,11 +152,11 @@ void PluginManager::listAvailablePlugins() {
     std::vector<std::string> contents = getDirectoryContents(pluginsDir);
 
     if (contents.empty()) {
-        printf(YELLOW << "No available plugins found." << RESET);
+        printf("No available plugins found.\n");
         return;
     }
 
-    printf(BOLD << "Available plugins:" << RESET);
+    printf("Available plugins:\n");
     for (const auto& item : contents) {
         std::cout << "  " << item << std::endl;
     }
@@ -132,11 +164,11 @@ void PluginManager::listAvailablePlugins() {
 
 void PluginManager::listInstalledPlugins() {
     if (installed_plugins.empty()) {
-        printf(YELLOW << "No plugins installed." << RESET);
+        printf("No plugins installed.\n");
         return;
     }
 
-    printf(BOLD << "Installed plugins:" << RESET);
+    printf("Installed plugins:\n");
     for (const auto& pair : installed_plugins) {
         std::cout << "  " << pair.first << ": " << (pair.second ? "enabled" : "disabled") << std::endl;
     }
@@ -145,13 +177,13 @@ void PluginManager::listInstalledPlugins() {
 // 新增功能：设置仓库URL
 void PluginManager::setRepositoryUrl(const std::string& url) {
     repository_url = url;
-    printf(GREEN << "Repository URL set to: " << url << RESET);
+    printf("Repository URL set to: %s\n", url.c_str());
 }
 
 // 新增功能：列出远程插件
 void PluginManager::listRemotePlugins() {
     if (repository_url.empty()) {
-        printf(RED << "No repository URL configured. Use 'plugin repo set <url>' first." << RESET);
+        printf("No repository URL configured. Use 'plugin repo set <url>' first.\n");
         return;
     }
 
@@ -170,12 +202,11 @@ void PluginManager::listRemotePlugins() {
             tempFile.close();
             remove("temp_plugins.json");
         }
-        printf(BOLD << "Available remote plugins:" << RESET);
-        //printf("%s", jsonData.c_str());
+        printf("Available remote plugins:\n");
         std::cout << jsonData << std::endl;
     }
     else {
-        printf(RED << "Failed to fetch plugin list from repository." << RESET);
+        printf("Failed to fetch plugin list from repository.\n");
     }
 #endif
 }
@@ -183,7 +214,7 @@ void PluginManager::listRemotePlugins() {
 // 新增功能：下载插件
 void PluginManager::downloadPlugin(const std::string& pluginName) {
     if (repository_url.empty()) {
-        printf(RED << "No repository URL configured. Use 'plugin repo set <url>' first." << RESET);
+        printf("No repository URL configured. Use 'plugin repo set <url>' first.\n");
         return;
     }
 
@@ -193,11 +224,11 @@ void PluginManager::downloadPlugin(const std::string& pluginName) {
 
 #ifdef _WIN32
     if (downloadWithWinInet(downloadUrl, localPath)) {
-        printf(GREEN << BOLD << "Plugin '" << pluginName << "' downloaded successfully." << RESET);
+        printf("Plugin '%s' downloaded successfully.\n", pluginName.c_str());
         // 这里可以添加解压逻辑
     }
     else {
-        printf(RED << "Failed to download plugin '" << pluginName << "'" << RESET);
+        printf("Failed to download plugin '%s'\n", pluginName.c_str());
         remove(localPath.c_str()); // 删除失败的下载文件
     }
 #endif
