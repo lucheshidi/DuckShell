@@ -124,7 +124,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           echo "Build directory contents:"
-          dir ${{github.workspace}}\build\
+          tree ${{github.workspace}}\build\
           powershell -Command "Get-ChildItem -Recurse ${{github.workspace}}\build\"
       
 
