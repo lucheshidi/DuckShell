@@ -19,40 +19,35 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install CMake
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: 'latest'
+
+      - name: Install G++
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake
-          cmake --version
-
-      - name: Install CMake
-        if: runner.os == 'Windows'
-        run: |
-          choco install cmake
-          cmake --version
-
-      - name: Install CMake
-        if: runner.os == 'macOS'
-        run: |
-          brew update
-          brew install cmake
-          cmake --version
-
-      - name: Install G++
-        if: runner.os == 'Linux'
-        run: sudo apt-get install -y g++
+          sudo apt-get install -y g++
+          echo "G++ installation completed with exit code $?"
+      
 
       - name: Install G++
         if: runner.os == 'Windows'
-        run: choco install mingw-w64
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
 
       - name: Install G++
         if: runner.os == 'macOS'
         run: |
-          brew update
-          brew install g++
+          brew update || echo "Brew update failed, continuing anyway..."
+          brew install gcc
           g++ -v
+      
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
