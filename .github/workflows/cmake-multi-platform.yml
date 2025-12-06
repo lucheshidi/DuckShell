@@ -64,7 +64,8 @@ jobs:
             mingw-w64-x86_64-cmake
           pacboy: >-
             toolchain:p
-        timeout-minutes: 30
+          cache: false
+        timeout-minutes: 45  # 增加到45分钟
 
       - name: Install G++ on Windows ARM64
         if: runner.os == 'Windows' && matrix.architecture == 'arm64'
@@ -77,7 +78,8 @@ jobs:
             mingw-w64-aarch64-cmake
           pacboy: >-
             toolchain:p
-        timeout-minutes: 30
+          cache: false
+        timeout-minutes: 45  # 增加到45分钟
 
       # macOS安装改进
       - name: Install G++ on macOS
