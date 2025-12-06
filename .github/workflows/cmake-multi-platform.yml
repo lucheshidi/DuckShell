@@ -14,8 +14,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
-        architecture: [ amd64, arm64 ]
+        include:
+          - os: ubuntu-latest
+            architecture: amd64
+          - os: ubuntu-latest
+            architecture: arm64
+          - os: windows-latest
+            architecture: amd64
+          - os: macos-latest
+            architecture: amd64
 
     steps:
       - uses: actions/checkout@v6
@@ -26,15 +33,21 @@ jobs:
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: 'latest'
-        timeout-minutes: 10
+        timeout-minutes: 15
 
-      - name: Install G++ on Linux
-        if: runner.os == 'Linux'
+      - name: Install G++ on Linux AMD64
+        if: runner.os == 'Linux' && matrix.architecture == 'amd64'
         run: |
           sudo apt-get update
           sudo apt-get install -y g++
           echo "G++ installation completed with exit code $?"
-      
+
+      - name: Install G++ on Linux ARM64
+        if: runner.os == 'Linux' && matrix.architecture == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-aarch64-linux-gnu
+          echo "G++ ARM64 installation completed with exit code $?"
 
       # Windows安装改进
       - name: Install G++ on Windows
@@ -48,7 +61,7 @@ jobs:
             mingw-w64-x86_64-cmake
           pacboy: >-
             toolchain:p
-        timeout-minutes: 20
+        timeout-minutes: 30
 
       # macOS安装改进
       - name: Install G++ on macOS
@@ -60,6 +73,14 @@ jobs:
           g++ --version
         timeout-minutes: 15
 
+      - name: Configure CMake on Linux ARM64
+        if: runner.os == 'Linux' && matrix.architecture == 'arm64'
+        run: |
+          cmake -B ${{github.workspace}}/build \
+                -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+                -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+                -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+
       - name: Configure CMake on macOS
         if: runner.os == 'macOS'
         run: |
@@ -68,7 +89,7 @@ jobs:
                 -DCMAKE_CXX_COMPILER=g++-13
 
       - name: Configure CMake on other platforms
-        if: runner.os != 'macOS'
+        if: (runner.os != 'macOS') && !(runner.os == 'Linux' && matrix.architecture == 'arm64')
         run: |
           cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
@@ -78,7 +99,7 @@ jobs:
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: duckshell-${{ runner.os }}-${{ env.BUILD_TYPE }}
+          name: duckshell-${{ runner.os }}-${{ matrix.architecture }}-${{ env.BUILD_TYPE }}
           path: ${{github.workspace}}/build/DuckShell*
           if-no-files-found: warn
 
@@ -96,4 +117,3 @@ jobs:
         run: |
           if exist "${{github.workspace}}\build" rmdir /s /q "${{github.workspace}}\build"
         shell: cmd
-
