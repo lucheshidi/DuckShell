@@ -69,11 +69,11 @@ jobs:
               <key>CFBundleExecutable</key>
               <string>DuckShell</string>
               <key>CFBundleIdentifier</key>
-              <string>com.example.DuckShell</string>
+              <string>io.lucheshidi.DuckShell</string>
               <key>CFBundleName</key>
               <string>DuckShell</string>
               <key>CFBundleVersion</key>
-              <string>1.0</string>
+              <string>Beta 0.1</string>
           </dict>
           </plist>
           EOF
