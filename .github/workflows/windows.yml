@@ -34,33 +34,10 @@ jobs:
           msystem: MINGW64
           update: false
           install: >-
-            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-cmake
-          pacboy: >-
-            toolchain:p
           cache: false
-        timeout-minutes: 60
-
-      # 在安装前添加更换镜像源的步骤
-      - name: Change MSYS2 mirror source
-        run: |
-          # 使用国内镜像源加速下载
-          sed -i 's#https://repo.msys2.org/#https://mirrors.tuna.tsinghua.edu.cn/msys2/#g' /etc/pacman.d/mirrorlist
-          sed -i 's#https://sourceforge.net/projects/msys2/files/REPOS/#https://mirrors.tuna.tsinghua.edu.cn/msys2/#g' /etc/pacman.d/mirrorlist
-
-      - name: Set pacman timeout
-        run: |
-          echo 'XferCommand = /usr/bin/curl -L -C - -f -o %o %u --connect-timeout 60 --retry 3 --retry-delay 5' >> /etc/pacman.conf
-
-
-      - name: Install basic compiler tools
-        run: |
-          pacman -S --noconfirm --needed mingw-w64-x86_64-gcc
-
-      - name: Install cmake
-        run: |
-          pacman -S --noconfirm --needed mingw-w64-x86_64-cmake
-
+        timeout-minutes: 90
 
       - name: Configure CMake on Windows
         run: |
