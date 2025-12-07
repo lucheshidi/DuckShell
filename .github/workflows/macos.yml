@@ -1,0 +1,99 @@
+# .github/workflows/macos.yml
+name: macOS Build
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        architecture: [ amd64, arm64 ]
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          clean: true
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: 'latest'
+        timeout-minutes: 15
+
+      - name: Install G++ on macOS
+        run: |
+          brew install gcc
+          ls /opt/homebrew/bin/g++* || ls /usr/local/bin/g++* 
+          g++-13 --version || echo "Trying to find available g++ version..."
+          g++ --version
+        timeout-minutes: 15
+
+      - name: Configure CMake on macOS AMD64
+        if: matrix.architecture == 'amd64'
+        run: |
+          cmake -B ${{github.workspace}}/build \
+                -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+                -DCMAKE_CXX_COMPILER=g++-13
+
+      - name: Configure CMake on macOS ARM64
+        if: matrix.architecture == 'arm64'
+        run: |
+          cmake -B ${{github.workspace}}/build \
+                -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+                -DCMAKE_CXX_COMPILER=g++-13 \
+                -DCMAKE_OSX_ARCHITECTURES=arm64
+
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+      - name: Create DMG Package
+        run: |
+          # 创建应用程序包结构
+          mkdir -p DuckShell.app/Contents/MacOS
+          mkdir -p DuckShell.app/Contents/Resources
+          cp ${{github.workspace}}/build/DuckShell DuckShell.app/Contents/MacOS/
+          # 创建 Info.plist
+          cat > DuckShell.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>DuckShell</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.example.DuckShell</string>
+              <key>CFBundleName</key>
+              <string>DuckShell</string>
+              <key>CFBundleVersion</key>
+              <string>1.0</string>
+          </dict>
+          </plist>
+          EOF
+          # 创建 DMG
+          hdiutil create -volname "DuckShell" -srcfolder DuckShell.app -ov -format UDZO duckshell-macos-${{ matrix.architecture }}.dmg
+
+      - name: List build directory contents on macOS
+        run: |
+          echo "Build directory contents:"
+          ls -la ${{github.workspace}}/build/
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: duckshell-macos-${{ matrix.architecture }}-${{ env.BUILD_TYPE }}
+          path: |
+            ${{github.workspace}}/build/DuckShell
+            ${{github.workspace}}/duckshell-macos-${{ matrix.architecture }}.dmg
+          if-no-files-found: warn
+
+      - name: Clean cache on macOS
+        run: |
+          rm -rf ${{github.workspace}}/build

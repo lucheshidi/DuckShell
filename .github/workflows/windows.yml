@@ -1,0 +1,67 @@
+# .github/workflows/windows.yml
+name: Windows Build
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        architecture: [ amd64 ]
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          clean: true
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: 'latest'
+        timeout-minutes: 15
+
+      - name: Install G++ on Windows AMD64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+          pacboy: >-
+            toolchain:p
+          cache: false
+        timeout-minutes: 60
+
+      - name: Configure CMake on Windows
+        run: |
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G "MinGW Makefiles"
+
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+      - name: List build directory contents on Windows
+        run: |
+          echo "Build directory contents:"
+          dir ${{github.workspace}}\build\
+          powershell -Command "Get-ChildItem -Recurse ${{github.workspace}}\build\"
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: duckshell-windows-${{ matrix.architecture }}-${{ env.BUILD_TYPE }}
+          path: ${{github.workspace}}/build/DuckShell.exe
+          if-no-files-found: warn
+
+      - name: Clean cache on Windows
+        run: |
+          if exist "${{github.workspace}}\build" rmdir /s /q "${{github.workspace}}\build"
+        shell: cmd

@@ -1,0 +1,77 @@
+# .github/workflows/linux.yml
+name: Linux Build
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        architecture: [ amd64, arm64 ]
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          clean: true
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: 'latest'
+        timeout-minutes: 15
+
+      - name: Install G++ on Linux AMD64
+        if: matrix.architecture == 'amd64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++
+          echo "G++ installation completed with exit code $?"
+
+      - name: Install G++ on Linux ARM64
+        if: matrix.architecture == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-aarch64-linux-gnu
+          echo "G++ ARM64 installation completed with exit code $?"
+
+      - name: Configure CMake on Linux ARM64
+        if: matrix.architecture == 'arm64'
+        run: |
+          cmake -B ${{github.workspace}}/build \
+                -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+                -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+                -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+
+      - name: Configure CMake on Linux AMD64
+        if: matrix.architecture == 'amd64'
+        run: |
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+      - name: Build
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+      - name: List build directory contents on Unix-like systems
+        run: |
+          echo "Build directory contents:"
+          ls -la ${{github.workspace}}/build/
+          echo "All files in build directory:"
+          find ${{github.workspace}}/build -type f
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: duckshell-linux-${{ matrix.architecture }}-${{ env.BUILD_TYPE }}
+          path: ${{github.workspace}}/build/DuckShell
+          if-no-files-found: warn
+
+      - name: Clean cache on Unix-like systems
+        run: |
+          rm -rf ${{github.workspace}}/build
