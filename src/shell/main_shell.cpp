@@ -1,6 +1,12 @@
 #include <algorithm>
 //#include <filesystem>
 #include <iomanip>
+#include <cctype>
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <conio.h>
+#endif
 
 #include "../header.h"
 #include "../plugins/plugins_manager.h"
@@ -8,6 +14,8 @@
 #ifndef _WIN32
 #include <dirent.h>
 #include <sys/stat.h>
+#include <termios.h>
+#include <unistd.h>
 #endif
 
 
@@ -24,6 +32,109 @@ std::vector<std::string> split(const std::string& str, char delimiter) {
     }
 
     return tokens;
+}
+
+// 交互式逐字符读取一行，支持在未回车时按下 Ctrl+L 清屏
+static std::string read_line_interactive(const std::string& prompt_shown) {
+    std::string buffer;
+
+#ifdef _WIN32
+    // Windows: 使用 _getch 逐字符读取
+    for (;;) {
+        int ch = _getch();
+
+        // 回车 (CR)
+        if (ch == '\r') {
+            std::cout << "\n";
+            break;
+        }
+
+        // 处理退格键
+        if (ch == 8 /* BS */ || ch == 127) {
+            if (!buffer.empty()) {
+                buffer.pop_back();
+                // 在控制台删除一个字符
+                std::cout << "\b \b";
+                std::cout.flush();
+            }
+            continue;
+        }
+
+        // 处理 Ctrl+L (FF, 0x0C)
+        if (ch == 12) {
+#ifdef _WIN32
+            system("cls");
+#else
+            system("clear");
+#endif
+            // 重绘提示符与当前缓冲
+            print(prompt_shown);
+            std::cout << buffer;
+            std::cout.flush();
+            continue;
+        }
+
+        // 忽略不可打印控制字符
+        if (ch >= 32 && ch != 127) {
+            buffer.push_back(static_cast<char>(ch));
+            std::cout << static_cast<char>(ch);
+            std::cout.flush();
+        }
+    }
+#else
+    // POSIX: 设置终端为非规范模式，逐字符读取
+    termios oldt{};
+    termios newt{};
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON); // 保留 ECHO 由我们自己输出
+    newt.c_lflag &= ~(ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    for (;;) {
+        unsigned char ch = 0;
+        ssize_t n = ::read(STDIN_FILENO, &ch, 1);
+        if (n <= 0) {
+            continue;
+        }
+
+        if (ch == '\n' || ch == '\r') {
+            std::cout << "\n";
+            break;
+        }
+
+        if (ch == 8 || ch == 127) { // backspace/delete
+            if (!buffer.empty()) {
+                buffer.pop_back();
+                std::cout << "\b \b";
+                std::cout.flush();
+            }
+            continue;
+        }
+
+        if (ch == 12) { // Ctrl+L
+#ifdef _WIN32
+            system("cls");
+#else
+            system("clear");
+#endif
+            print(prompt_shown);
+            std::cout << buffer;
+            std::cout.flush();
+            continue;
+        }
+
+        if (ch >= 32 && ch != 127) {
+            buffer.push_back(static_cast<char>(ch));
+            std::cout << static_cast<char>(ch);
+            std::cout.flush();
+        }
+    }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+#endif
+
+    return buffer;
 }
 
 void execute(const std::string& input) {
@@ -110,10 +221,122 @@ void execute(const std::string& input) {
         std::replace(new_path.begin(), new_path.end(), '/', path_separator[0]);
         std::replace(new_path.begin(), new_path.end(), '\\', path_separator[0]);
 
-            if (is_directory_exists(new_path)) {
-                dir_now = new_path;
+        // Canonicalize path to remove "." and ".." segments and produce a full path style
+        auto normalize_path = [&](const std::string &p) -> std::string {
+            if (p.empty()) return p;
+
+            const char sep = path_separator[0];
+            std::vector<std::string> segments;
+
+            // Detect Windows drive like "C:" and whether rooted (e.g., C:\)
+            std::string drivePrefix;
+            bool rooted = false;
+
+#ifdef _WIN32
+            if (p.size() >= 2 && p[1] == ':') {
+                drivePrefix = p.substr(0, 2); // e.g., "C:"
+                // Check if after drive there is a separator -> rooted at drive
+                if (p.size() >= 3 && (p[2] == '\\' || p[2] == '/')) {
+                    rooted = true;
+                }
+            } else if (!p.empty() && (p[0] == '\\' || p[0] == '/')) {
+                rooted = true;
             }
-        else {
+#else
+            if (!p.empty() && p[0] == '/') {
+                rooted = true;
+            }
+#endif
+
+            // Split by both separators
+            std::string token;
+            auto flush_token = [&]() {
+                if (!token.empty()) {
+                    if (token == ".") {
+                        // skip
+                    } else if (token == "..") {
+                        if (!segments.empty()) {
+                            segments.pop_back();
+                        } else {
+                            // At root: keep as root, ignore further ".."
+                        }
+                    } else {
+                        segments.emplace_back(token);
+                    }
+                    token.clear();
+                }
+            };
+
+            for (size_t i = 0; i < p.size(); ++i) {
+                char c = p[i];
+                if (c == '/' || c == '\\') {
+                    flush_token();
+                } else {
+                    // Skip drive letters already captured
+#ifdef _WIN32
+                    if (i < 2 && p.size() >= 2 && p[1] == ':') {
+                        // part of drive, skip storing
+                        continue;
+                    }
+                    if (i == 2 && p.size() >= 3 && (p[2] == '\\' || p[2] == '/')) {
+                        // skip the separator after drive when rooted
+                        continue;
+                    }
+#endif
+                    token.push_back(c);
+                }
+            }
+            flush_token();
+
+            // Rebuild
+            std::string result;
+#ifdef _WIN32
+            result += drivePrefix;
+#endif
+            if (rooted) result.push_back(sep);
+            for (size_t i = 0; i < segments.size(); ++i) {
+                if (!(result.empty() || result.back() == sep)) {
+                    result.push_back(sep);
+                }
+                result += segments[i];
+            }
+
+#ifdef _WIN32
+            // Ensure root like "C:" becomes "C:\" to match previous behavior
+            if (!drivePrefix.empty() && rooted && segments.empty()) {
+                if (result.size() == 2) result.push_back(sep);
+            }
+#endif
+            return result;
+        };
+
+        new_path = normalize_path(new_path);
+
+            if (is_directory_exists(new_path)) {
+#ifdef _WIN32
+                // On Windows, correct the case of each path component and uppercase drive letter
+                // using WinAPI. This ensures paths like "c:\windows" or "C:\WINDOWS" display as
+                // "C:\Windows" consistently.
+                #ifndef MAX_PATH
+                #define MAX_PATH 260
+                #endif
+                char fullBuf[MAX_PATH];
+                DWORD flen = GetFullPathNameA(new_path.c_str(), MAX_PATH, fullBuf, nullptr);
+                std::string full = (flen > 0 && flen < MAX_PATH) ? std::string(fullBuf, flen) : new_path;
+
+                char longBuf[MAX_PATH];
+                DWORD llen = GetLongPathNameA(full.c_str(), longBuf, MAX_PATH);
+                std::string cased = (llen > 0 && llen < MAX_PATH) ? std::string(longBuf, llen) : full;
+
+                if (!cased.empty() && std::isalpha(static_cast<unsigned char>(cased[0]))) {
+                    cased[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(cased[0])));
+                }
+                dir_now = cased;
+#else
+                dir_now = new_path;
+#endif
+            }
+            else {
                 printf(RED << BOLD << "Directory does not exist." << RESET);
             }
         }
@@ -198,19 +421,10 @@ int startup(const std::string &param) {
     if (param.empty()) {
         std::string command;
         while (true) {
-            print("DUCKSHELL " << dir_now << " > ");
+            const std::string prompt = std::string("DUCKSHELL { ") + dir_now + " }> ";
+            print(prompt);
             std::cout.flush();
-            std::getline(std::cin, command);
-
-            if (command == "\x0C") {
-                // Ctrl+L (^L)
-#ifdef _WIN32
-                system("cls");
-#else
-                system("clear");
-#endif
-                continue;
-            }
+            command = read_line_interactive(prompt);
 
             if (command == "exit" || command == "quit") {
                 break;

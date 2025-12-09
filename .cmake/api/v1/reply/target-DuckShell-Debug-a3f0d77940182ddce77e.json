@@ -35,19 +35,19 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 25,
+				"line" : 27,
 				"parent" : 0
 			},
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 37,
+				"line" : 39,
 				"parent" : 0
 			},
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 31,
+				"line" : 33,
 				"parent" : 0
 			}
 		]
@@ -100,7 +100,7 @@
 				"role" : "flags"
 			},
 			{
-				"fragment" : "-static",
+				"fragment" : "-static-libgcc -static-libstdc++",
 				"role" : "flags"
 			},
 			{

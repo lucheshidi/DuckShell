@@ -20,6 +20,8 @@ add_executable(DuckShell
         src/global_vars.h
 )
 
+set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+
 # Windows平台需要链接WinINet库
 if(WIN32)
     target_link_libraries(DuckShell wininet ws2_32)
