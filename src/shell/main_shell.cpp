@@ -438,9 +438,9 @@ void execute(const std::string& input) {
         }
 #else
         if (unlink(filepath.c_str()) != 0) {
-            printf(RED << BOLD << "Failed to delete file: " << filepath << RESET);
+            println(RED << BOLD << "Failed to delete file: " << filepath << RESET);
         } else {
-            printf(GREEN << "File deleted successfully: " << filepath << RESET);
+            println(GREEN << "File deleted successfully: " << filepath << RESET);
         }
 #endif
     }
