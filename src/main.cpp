@@ -1,4 +1,5 @@
 #include "header.h"
+#include "plugins/plugins_manager.h"
 
 int main(int argc, char **argv) {
     // 调试信息输出
@@ -25,8 +26,6 @@ int main(int argc, char **argv) {
         std::ofstream outfile(plugins_file);
         outfile << "// duckshell plugins list" << std::endl;
         outfile << "// Do not change this file!" << std::endl;
-        outfile << "{" << std::endl << std::endl;
-        outfile << "}" << std::endl;
         outfile.close();
     }
     else {
@@ -36,8 +35,6 @@ int main(int argc, char **argv) {
             std::ofstream outfile(plugins_file);
             outfile << "// DuckShell plugins list" << std::endl;
             outfile << "// Do not change this file!" << std::endl;
-            outfile << "{" << std::endl << std::endl;
-            outfile << "}" << std::endl;
             outfile.close();
         }
 
@@ -51,6 +48,13 @@ int main(int argc, char **argv) {
 #endif
         }
     }
+
+    // 自动安装所有插件
+    PluginManager::installAllPlugins();
+
+    // 为特定插件分发命令参数
+    std::vector<std::string> commandArgs = {"arg1", "arg2", "arg3"};
+    PluginManager::executePluginWithCommand("HelloWorldPlugin.dll", commandArgs);
 
 
     if (argc < 2) {

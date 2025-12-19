@@ -19,6 +19,12 @@ public:
     static void listRemotePlugins();
     static void downloadPlugin(const std::string& pluginName);
 
+    static void installAllPlugins();  // 自动安装所有可用插件
+    static void executePluginWithCommand(const std::string& pluginName, const std::vector<std::string>& cmdArgs);
+    static bool isPluginInstalled(const std::string& pluginName);
+    static bool isPluginCommand(const std::string& command);
+    static std::string resolvePluginName(const std::string& pluginName);
+
 private:
     static std::map<std::string, bool> installed_plugins;
     static std::string repository_url;

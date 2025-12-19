@@ -154,7 +154,7 @@ void execute(const std::string& input) {
 
     if (cmd[0] == "cd") {
         if (cmd.size() > 3) {
-            printf(RED << BOLD << "Too many arguments." << RESET);
+            println(RED << BOLD << "Too many arguments." << RESET);
             return;
         }
 
@@ -337,7 +337,7 @@ void execute(const std::string& input) {
 #endif
             }
             else {
-                printf(RED << BOLD << "Directory does not exist." << RESET);
+                println(RED << BOLD << "Directory does not exist." << RESET);
             }
         }
 
@@ -386,7 +386,7 @@ void execute(const std::string& input) {
     // 在 execute 函数中添加插件管理命令处理
     if (cmd[0] == "plugin" || cmd[0] == "plugins") {
         if (cmd.size() < 2) {
-            printf(RED << BOLD << "Usage: plugin [install|uninstall|list|available] <plugin_name>" << RESET);
+            println(RED << BOLD << "Usage: plugin [install|uninstall|list|available] <plugin_name>" << RESET);
             return;
         }
 
@@ -403,7 +403,91 @@ void execute(const std::string& input) {
             PluginManager::listAvailablePlugins();
         }
         else {
-            printf(RED << BOLD << "Invalid plugin command or missing argument." << RESET);
+            println(RED << BOLD << "Invalid plugin command or missing argument." << RESET);
+        }
+    }
+
+    // 文件系统操作
+    // 删除物品
+    if (cmd[0] == "rmv" || cmd[0] == "rm" || cmd[0] == "RemoveItem" || cmd[0] == "del") {
+        if (cmd.size() < 2) {
+            println("Usage: { rm | rmv | RemoveItem | del } [options] <filename>\n");
+            return;
+        }
+
+        std::string filepath;
+        if (cmd[1][0] == '/' || (cmd[1].length() >= 2 && cmd[1][1] == ':')) {
+            // Absolute path
+            filepath = cmd[1];
+        } else {
+            // Relative path
+            filepath = dir_now +
+#ifdef _WIN32
+                       "\\" +
+#else
+                       "/" +
+#endif
+                       cmd[1];
+        }
+
+#ifdef _WIN32
+        if (DeleteFileA(filepath.c_str()) == 0) {
+            println(RED << BOLD << "Failed to delete file: " << filepath << RESET);
+        } else {
+            println(GREEN << "File deleted successfully: " << filepath << RESET);
+        }
+#else
+        if (unlink(filepath.c_str()) != 0) {
+            printf(RED << BOLD << "Failed to delete file: " << filepath << RESET);
+        } else {
+            printf(GREEN << "File deleted successfully: " << filepath << RESET);
+        }
+#endif
+    }
+
+    // 新建物品
+    if (cmd[0] == "new" || cmd[0] == "crt" || cmd[0] == "mk") {
+        if (cmd.size() < 2) {
+            println("Usage: { new | crt | mk } [options] <name>\n"
+                  "Options:\n"
+                  "    -f      Create a file.\n"
+                  "    -d      Create a directory.");
+        }
+        else {
+            if (cmd[1] == "-f" || cmd[1] == "file" || cmd[1] == "File") {
+
+            }
+        }
+    }
+
+    // 在主命令循环中添加插件命令处理
+    // 在主命令处理逻辑中
+    // 在主命令处理逻辑中
+    if (cmd[0] == "plugin") {
+        if (cmd.size() < 2) {
+            printf("Usage: plugin <command> [args...]\n");
+            printf("Commands: install-all, list, run <plugin_name> [args...]\n");
+            return;
+        }
+
+        if (cmd[1] == "run") {
+            if (cmd.size() < 3) {
+                printf("Usage: plugin run <plugin_name> [args...]\n");
+                return;
+            }
+
+            std::string pluginName = cmd[2];
+            std::vector<std::string> pluginArgs(cmd.begin() + 3, cmd.end());
+            PluginManager::executePluginWithCommand(pluginName, pluginArgs);
+        }
+        else if (cmd[1] == "install-all") {
+            PluginManager::installAllPlugins();
+        }
+        else if (cmd[1] == "list") {
+            PluginManager::listInstalledPlugins();
+        }
+        else {
+            printf("Unknown plugin command: %s\n", cmd[1].c_str());
         }
     }
 }
@@ -432,7 +516,7 @@ int startup(const std::string &param) {
 
             if (!command.empty()) {
                 // TODO: 处理命令执行逻辑
-                printf(BOLD << YELLOW << "Executing: " << command << RESET);
+                println(BOLD << YELLOW << "Executing: " << command << RESET);
                 execute(command);
             }
         }

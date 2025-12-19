@@ -3,8 +3,11 @@
 #include "../global_vars.h"
 #include <iostream>
 #include <fstream>
+#include <set>
 #include <sstream>
 #include <sys/stat.h>
+
+#include "plugins_interface.h"
 
 #ifdef _WIN32
     #include <windows.h>
@@ -233,6 +236,152 @@ void PluginManager::downloadPlugin(const std::string& pluginName) {
     }
 #endif
 }
+
+void PluginManager::installAllPlugins() {
+    std::string pluginsDir = home_dir + "/duckshell/plugins";
+    std::vector<std::string> contents = getDirectoryContents(pluginsDir);
+
+    if (contents.empty()) {
+        printf("No plugins found to install.\n");
+        return;
+    }
+
+    printf("Scanning for plugins to install...\n");
+
+    // 记录当前已安装的插件数量
+    size_t initialCount = installed_plugins.size();
+
+    for (const auto& item : contents) {
+        // 检查是否为插件文件（根据扩展名判断）
+        if (item.find(".dll") != std::string::npos ||
+            item.find(".so") != std::string::npos) {
+            // 检查插件是否已经安装
+            auto it = installed_plugins.find(item);
+            if (it == installed_plugins.end()) {
+                // 只有未安装的插件才添加
+                installed_plugins[item] = true;
+                printf("Plugin '%s' added for installation.\n", item.c_str());
+            } else {
+                printf("Plugin '%s' already installed.\n", item.c_str());
+            }
+            }
+    }
+
+    // 只有在有新插件添加时才重写文件
+    if (installed_plugins.size() > initialCount) {
+        // 重新写入整个插件列表文件
+        std::string pluginsListFile = home_dir + "/duckshell/plugins.ls";
+        std::ofstream outfile(pluginsListFile);
+        if (outfile.is_open()) {
+            for (const auto& pair : installed_plugins) {
+                outfile << pair.first << ":" << (pair.second ? "enabled" : "disabled") << "\n";
+            }
+            outfile.close();
+            printf("Plugins list updated successfully.\n");
+        }
+    } else {
+        printf("No new plugins to install.\n");
+    }
+}
+
+// 在 plugins_manager.cpp 中添加实现
+void PluginManager::executePluginWithCommand(const std::string& pluginName, const std::vector<std::string>& cmdArgs) {
+    // 解析插件名称
+    std::string resolvedName = resolvePluginName(pluginName);
+
+    auto it = installed_plugins.find(resolvedName);
+    if (it == installed_plugins.end()) {
+        printf("Plugin '%s' is not installed.\n", resolvedName.c_str());
+        return;
+    }
+
+    if (!it->second) {
+        printf("Plugin '%s' is disabled.\n", resolvedName.c_str());
+        return;
+    }
+
+    std::string pluginPath = home_dir + "/duckshell/plugins/" + resolvedName;
+
+#ifdef _WIN32
+    HMODULE handle = LoadLibraryA(pluginPath.c_str());
+    if (!handle) {
+        printf("Failed to load plugin '%s'. Error: %lu\n", resolvedName.c_str(), GetLastError());
+        return;
+    }
+
+    CreatePluginFunc createFunc = (CreatePluginFunc)GetProcAddress(handle, "createPlugin");
+    if (!createFunc) {
+        printf("Plugin '%s' does not export createPlugin function.\n", resolvedName.c_str());
+        FreeLibrary(handle);
+        return;
+    }
+
+    IPlugin* plugin = createFunc();
+    if (plugin) {
+        // 将命令参数传递给插件
+        std::map<std::string, std::string> params;
+        for (size_t i = 0; i < cmdArgs.size(); ++i) {
+            params["arg" + std::to_string(i)] = cmdArgs[i];
+        }
+        params["argc"] = std::to_string(cmdArgs.size());
+
+        // 触发一个事件让插件处理命令参数
+        plugin->onEvent("command_execute", params);
+
+        // 同时执行标准的 execute 方法
+        plugin->execute();
+
+        DestroyPluginFunc destroyFunc = (DestroyPluginFunc)GetProcAddress(handle, "destroyPlugin");
+        if (destroyFunc) {
+            destroyFunc(plugin);
+        }
+        FreeLibrary(handle);
+    }
+#endif
+}
+
+
+
+bool PluginManager::isPluginInstalled(const std::string& pluginName) {
+    auto it = installed_plugins.find(pluginName);
+    return (it != installed_plugins.end() && it->second);
+}
+
+bool PluginManager::isPluginCommand(const std::string& command) {
+    // 可以维护一个特殊命令列表，避免与插件名冲突
+    static std::set<std::string> builtinCommands = {"help", "exit", "cd", "ls", "plugin"};
+    return builtinCommands.find(command) != builtinCommands.end();
+}
+
+// 在 PluginManager 类中添加声明
+static std::string resolvePluginName(const std::string& pluginName);
+
+// 在 plugins_manager.cpp 中实现
+std::string PluginManager::resolvePluginName(const std::string& pluginName) {
+    // 如果已经包含扩展名，直接返回
+    if (pluginName.find(".dll") != std::string::npos ||
+        pluginName.find(".so") != std::string::npos) {
+        return pluginName;
+        }
+
+    // 尝试添加常见的扩展名
+#ifdef _WIN32
+    std::string fullName = pluginName + ".dll";
+#else
+    std::string fullName = pluginName + ".so";
+#endif
+
+    // 检查文件是否存在
+    std::string pluginPath = home_dir + "/duckshell/plugins/" + fullName;
+    struct stat buffer;
+    if (stat(pluginPath.c_str(), &buffer) == 0) {
+        return fullName;
+    }
+
+    // 如果找不到，返回原始名称
+    return pluginName;
+}
+
 
 #ifdef _WIN32
 // Windows平台使用WinINet下载文件

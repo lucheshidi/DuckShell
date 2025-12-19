@@ -41,7 +41,7 @@ const std::string BLINK = "\033[5m";
 #include <pwd.h>
 #endif
 
-#define printf(out) std::cout << out << std::endl;
+#define println(out) std::cout << out << std::endl;
 #define print(out) std::cout << out;
 
 // 声明全局变量（不定义）
