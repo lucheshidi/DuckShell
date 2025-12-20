@@ -7,3 +7,6 @@
 
 # Build Cache File
 ./DuckShell.exe
+
+# CLion Cache
+./.idea
