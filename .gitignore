@@ -1,0 +1,9 @@
+# CMake Cache file
+./CMakeCache.txt
+./CMakeFiles/
+./cmake_install.cmake
+./Makefile
+./.cmake
+
+# Build Cache File
+./DuckShell.exe

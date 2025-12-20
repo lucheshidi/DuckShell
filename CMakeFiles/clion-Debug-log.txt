@@ -1,4 +1,4 @@
 cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=make -DCMAKE_C_COMPILER=gcc.exe -DCMAKE_CXX_COMPILER=g++.exe -G "MinGW Makefiles" -S F:\Programming\jyx-program\C++\DuckShell -B F:\Programming\jyx-program\C++\DuckShell
--- Configuring done (0.3s)
--- Generating done (0.0s)
+-- Configuring done (1.7s)
+-- Generating done (0.2s)
 -- Build files have been written to: F:/Programming/jyx-program/C++/DuckShell
