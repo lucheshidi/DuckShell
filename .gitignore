@@ -1,14 +1,19 @@
-# CMake Cache file
-#./CMakeCache.txt
-./CMakeFiles/
-./cmake_install.cmake
-./Makefile
-./.cmake
-
-./_deps
-
-# Build Cache File
-./DuckShell.exe
-
-# CLion Cache
-./.idea
+# CMake Cache and Build Files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+.cmake/
+_deps/
+*.exe
+*.a
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+generated/
+build/
+.idea/
+DuckShell.exe
+libminizip.a
