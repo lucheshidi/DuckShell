@@ -50,7 +50,8 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G "MinGW Makefiles"
 
       - name: Build
-        run: cmake --build build --config ${{env.BUILD_TYPE}} -j $(nproc)
+        run: |
+          cmake --build build --config ${{env.BUILD_TYPE}} -j $(nproc)
 
       - name: List build directory contents on Windows
         run: |
