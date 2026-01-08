@@ -46,10 +46,10 @@ jobs:
 
       - name: Configure CMake on Windows
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G "Unix Makefiles"
+          cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -G "MinGW Makefiles"
 
       - name: Build
-        run: cmake --build build --config ${{env.BUILD_TYPE}}
+        run: cmake --build build --config ${{env.BUILD_TYPE}} -j $(nproc)
 
       - name: List build directory contents on Windows
         run: |

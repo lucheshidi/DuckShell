@@ -56,7 +56,7 @@ jobs:
           cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_REMOTE_REPO=ON
 
       - name: Build
-        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} -j $(nproc)
 
       - name: List build directory contents on Unix-like systems
         run: |
