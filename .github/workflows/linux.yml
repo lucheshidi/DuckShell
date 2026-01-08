@@ -47,12 +47,13 @@ jobs:
           cmake -B ${{github.workspace}}/build \
                 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
                 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-                -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+                -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+                -DENABLE_REMOTE_REPO=OFF
 
       - name: Configure CMake on Linux AMD64
         if: matrix.architecture == 'amd64'
         run: |
-          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DENABLE_REMOTE_REPO=ON
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}

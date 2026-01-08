@@ -40,15 +40,13 @@ jobs:
         if: matrix.architecture == 'amd64'
         run: |
           cmake -B ${{github.workspace}}/build \
-                -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-                -DCMAKE_CXX_COMPILER=g++
+                -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
       - name: Configure CMake on macOS ARM64
         if: matrix.architecture == 'arm64'
         run: |
           cmake -B ${{github.workspace}}/build \
                 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-                -DCMAKE_CXX_COMPILER=g++ \
                 -DCMAKE_OSX_ARCHITECTURES=arm64
 
       - name: Build
