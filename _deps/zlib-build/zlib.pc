@@ -1,0 +1,13 @@
+prefix=D:/Program Files (x86)/DuckShell
+exec_prefix=D:/Program Files (x86)/DuckShell
+libdir=D:/Program Files (x86)/DuckShell/lib
+sharedlibdir=D:/Program Files (x86)/DuckShell/lib
+includedir=D:/Program Files (x86)/DuckShell/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.3.1
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}

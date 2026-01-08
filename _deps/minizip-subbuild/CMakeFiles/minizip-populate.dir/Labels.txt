@@ -1,0 +1,14 @@
+# Target labels
+ minizip-populate
+# Source files and their labels
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/CMakeFiles/minizip-populate
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/CMakeFiles/minizip-populate.rule
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/CMakeFiles/minizip-populate-complete.rule
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/minizip-populate-prefix/src/minizip-populate-stamp/minizip-populate-build.rule
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/minizip-populate-prefix/src/minizip-populate-stamp/minizip-populate-configure.rule
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/minizip-populate-prefix/src/minizip-populate-stamp/minizip-populate-download.rule
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/minizip-populate-prefix/src/minizip-populate-stamp/minizip-populate-install.rule
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/minizip-populate-prefix/src/minizip-populate-stamp/minizip-populate-mkdir.rule
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/minizip-populate-prefix/src/minizip-populate-stamp/minizip-populate-patch.rule
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/minizip-populate-prefix/src/minizip-populate-stamp/minizip-populate-test.rule
+L:/programming/C++/DuckShell/_deps/minizip-subbuild/minizip-populate-prefix/src/minizip-populate-stamp/minizip-populate-update.rule

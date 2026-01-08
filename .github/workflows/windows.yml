@@ -15,7 +15,13 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        architecture: [ amd64 ]
+        include:
+          - architecture: amd64
+            msystem: MINGW64
+            pkg_prefix: mingw-w64-x86_64
+          - architecture: aarch64
+            msystem: CLANGARM64
+            pkg_prefix: mingw-w64-clang-aarch64
 
     steps:
       - uses: actions/checkout@v6
@@ -28,15 +34,15 @@ jobs:
           cmake-version: 'latest'
         timeout-minutes: 15
 
-      - name: Install G++ on Windows AMD64
+      - name: Install Toolchain on Windows
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
-          update: false
+          msystem: ${{ matrix.msystem }}
+          update: true
           install: >-
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-cmake
-          cache: false
+            ${{ matrix.pkg_prefix }}-toolchain
+            ${{ matrix.pkg_prefix }}-cmake
+          cache: true
         timeout-minutes: 90
 
       - name: Configure CMake on Windows

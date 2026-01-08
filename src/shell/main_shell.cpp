@@ -1,7 +1,9 @@
 #include <algorithm>
-//#include <filesystem>
 #include <iomanip>
 #include <cctype>
+#include <deque>
+#include <vector>
+#include <sstream>  // 添加缺失的头文件
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -18,6 +20,11 @@
 #include <unistd.h>
 #endif
 
+// 声明全局变量用于命令历史记录
+static std::deque<std::string> command_history;
+static size_t history_index = 0;
+static std::string current_buffer;
+static size_t cursor_pos = 0;  // 光标在缓冲区中的位置
 
 // 字符串分割辅助函数
 std::vector<std::string> split(const std::string& str, char delimiter) {
@@ -36,12 +43,70 @@ std::vector<std::string> split(const std::string& str, char delimiter) {
 
 // 交互式逐字符读取一行，支持在未回车时按下 Ctrl+L 清屏
 static std::string read_line_interactive(const std::string& prompt_shown) {
-    std::string buffer;
+    current_buffer.clear();
+    cursor_pos = 0;
 
 #ifdef _WIN32
-    // Windows: 使用 _getch 逐字符读取
+    // Windows 实现
     for (;;) {
         int ch = _getch();
+
+        // 特殊键处理 (功能键)
+        if (ch == 0 || ch == 0xE0) {
+            int ch2 = _getch(); // 获取第二个字节
+
+            if (ch2 == 72) { // 上箭头键
+                if (!command_history.empty() && history_index > 0) {
+                    // 清除当前行
+                    for (size_t i = 0; i < current_buffer.length(); ++i) {
+                        std::cout << "\b \b";
+                    }
+
+                    // 加载历史命令
+                    history_index--;
+                    current_buffer = command_history[history_index];
+                    cursor_pos = current_buffer.length();
+                    std::cout << current_buffer;
+                    std::cout.flush();
+                }
+                continue;
+            }
+            else if (ch2 == 80) { // 下箭头键
+                if (!command_history.empty() && history_index < command_history.size()) {
+                    // 清除当前行
+                    for (size_t i = 0; i < current_buffer.length(); ++i) {
+                        std::cout << "\b \b";
+                    }
+
+                    history_index++;
+                    if (history_index < command_history.size()) {
+                        current_buffer = command_history[history_index];
+                    } else {
+                        current_buffer.clear();
+                    }
+                    cursor_pos = current_buffer.length();
+                    std::cout << current_buffer;
+                    std::cout.flush();
+                }
+                continue;
+            }
+            else if (ch2 == 75) { // 左箭头键
+                if (cursor_pos > 0) {
+                    cursor_pos--;
+                    std::cout << "\b";
+                    std::cout.flush();
+                }
+                continue;
+            }
+            else if (ch2 == 77) { // 右箭头键
+                if (cursor_pos < current_buffer.length()) {
+                    cursor_pos++;
+                    std::cout << current_buffer[cursor_pos-1];
+                    std::cout.flush();
+                }
+                continue;
+            }
+        }
 
         // 回车 (CR)
         if (ch == '\r') {
@@ -51,10 +116,19 @@ static std::string read_line_interactive(const std::string& prompt_shown) {
 
         // 处理退格键
         if (ch == 8 /* BS */ || ch == 127) {
-            if (!buffer.empty()) {
-                buffer.pop_back();
-                // 在控制台删除一个字符
-                std::cout << "\b \b";
+            if (!current_buffer.empty() && cursor_pos > 0) {
+                current_buffer.erase(cursor_pos - 1, 1);
+                cursor_pos--;
+
+                // 重绘行
+                std::cout << "\r" << prompt_shown << current_buffer;
+                // 将光标移动到正确位置
+                for (size_t i = cursor_pos; i < current_buffer.length(); ++i) {
+                    std::cout << " ";
+                }
+                for (size_t i = cursor_pos; i <= current_buffer.length(); ++i) {
+                    std::cout << "\b";
+                }
                 std::cout.flush();
             }
             continue;
@@ -62,27 +136,32 @@ static std::string read_line_interactive(const std::string& prompt_shown) {
 
         // 处理 Ctrl+L (FF, 0x0C)
         if (ch == 12) {
-#ifdef _WIN32
             system("cls");
-#else
-            system("clear");
-#endif
-            // 重绘提示符与当前缓冲
-            print(prompt_shown);
-            std::cout << buffer;
+            std::cout << "\r" << prompt_shown << current_buffer;
+            // 将光标移动到正确位置
+            for (size_t i = cursor_pos; i < current_buffer.length(); ++i) {
+                std::cout << "\b";
+            }
             std::cout.flush();
             continue;
         }
 
         // 忽略不可打印控制字符
         if (ch >= 32 && ch != 127) {
-            buffer.push_back(static_cast<char>(ch));
-            std::cout << static_cast<char>(ch);
+            current_buffer.insert(cursor_pos, 1, static_cast<char>(ch));
+            cursor_pos++;
+
+            // 重绘行
+            std::cout << "\r" << prompt_shown << current_buffer;
+            // 将光标移动到正确位置
+            for (size_t i = cursor_pos; i < current_buffer.length(); ++i) {
+                std::cout << "\b";
+            }
             std::cout.flush();
         }
     }
 #else
-    // POSIX: 设置终端为非规范模式，逐字符读取
+    // POSIX 版本
     termios oldt{};
     termios newt{};
     tcgetattr(STDIN_FILENO, &oldt);
@@ -98,35 +177,113 @@ static std::string read_line_interactive(const std::string& prompt_shown) {
             continue;
         }
 
+        // ANSI 转义序列处理 (方向键)
+        if (ch == 27) { // ESC
+            unsigned char ch2 = 0;
+            n = ::read(STDIN_FILENO, &ch2, 1);
+            if (n > 0 && ch2 == '[') {
+                unsigned char ch3 = 0;
+                n = ::read(STDIN_FILENO, &ch3, 1);
+                if (n > 0) {
+                    if (ch3 == 'A') { // 上箭头
+                        if (!command_history.empty() && history_index > 0) {
+                            // 清除当前行
+                            for (size_t i = 0; i < current_buffer.length(); ++i) {
+                                std::cout << "\b \b";
+                            }
+
+                            history_index--;
+                            current_buffer = command_history[history_index];
+                            cursor_pos = current_buffer.length();
+                            std::cout << current_buffer;
+                            std::cout.flush();
+                        }
+                        continue;
+                    }
+                    else if (ch3 == 'B') { // 下箭头
+                        if (!command_history.empty() && history_index < command_history.size()) {
+                            // 清除当前行
+                            for (size_t i = 0; i < current_buffer.length(); ++i) {
+                                std::cout << "\b \b";
+                            }
+
+                            history_index++;
+                            if (history_index < command_history.size()) {
+                                current_buffer = command_history[history_index];
+                            } else {
+                                current_buffer.clear();
+                            }
+                            cursor_pos = current_buffer.length();
+                            std::cout << current_buffer;
+                            std::cout.flush();
+                        }
+                        continue;
+                    }
+                    else if (ch3 == 'D') { // 左箭头
+                        if (cursor_pos > 0) {
+                            cursor_pos--;
+                            std::cout << "\b";
+                            std::cout.flush();
+                        }
+                        continue;
+                    }
+                    else if (ch3 == 'C') { // 右箭头
+                        if (cursor_pos < current_buffer.length()) {
+                            cursor_pos++;
+                            std::cout << current_buffer[cursor_pos-1];
+                            std::cout.flush();
+                        }
+                        continue;
+                    }
+                }
+            }
+        }
+
         if (ch == '\n' || ch == '\r') {
             std::cout << "\n";
             break;
         }
 
         if (ch == 8 || ch == 127) { // backspace/delete
-            if (!buffer.empty()) {
-                buffer.pop_back();
-                std::cout << "\b \b";
+            if (!current_buffer.empty() && cursor_pos > 0) {
+                current_buffer.erase(cursor_pos - 1, 1);
+                cursor_pos--;
+
+                // 重绘行
+                std::cout << "\r" << prompt_shown << current_buffer;
+                // 将光标移动到正确位置
+                for (size_t i = cursor_pos; i < current_buffer.length(); ++i) {
+                    std::cout << " ";
+                }
+                for (size_t i = cursor_pos; i <= current_buffer.length(); ++i) {
+                    std::cout << "\b";
+                }
                 std::cout.flush();
             }
             continue;
         }
 
         if (ch == 12) { // Ctrl+L
-#ifdef _WIN32
-            system("cls");
-#else
             system("clear");
-#endif
-            print(prompt_shown);
-            std::cout << buffer;
+            std::cout << "\r" << prompt_shown << current_buffer;
+            // 将光标移动到正确位置
+            for (size_t i = cursor_pos; i < current_buffer.length(); ++i) {
+                std::cout << "\b";
+            }
             std::cout.flush();
             continue;
         }
 
         if (ch >= 32 && ch != 127) {
-            buffer.push_back(static_cast<char>(ch));
-            std::cout << static_cast<char>(ch);
+            current_buffer.insert(cursor_pos, 1, static_cast<char>(ch));
+            cursor_pos++;
+
+            // 重绘行
+            std::cout << "\r" << prompt_shown << current_buffer;
+            // 将光标移动到正确位置
+            for (size_t i = cursor_pos; i < current_buffer.length(); ++i) {
+                std::cout << "\b";
+            }
             std::cout.flush();
         }
     }
@@ -134,12 +291,20 @@ static std::string read_line_interactive(const std::string& prompt_shown) {
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
 #endif
 
-    return buffer;
+    return current_buffer;
 }
 
 void execute(const std::string& input) {
+    // 添加命令到历史记录（除非是空命令或与上一条相同）
+    if (!input.empty() && (command_history.empty() || command_history.back() != input)) {
+        command_history.push_back(input);
+        if (command_history.size() > 100) {
+            command_history.pop_front();
+        }
+    }
+    history_index = command_history.size();
+
     const std::vector<std::string> cmd = split(input, ' ');
-    // 修复：删除无用的空语句，并增加合理的判断逻辑
     if (cmd.empty()) {
         return;
     }
@@ -161,9 +326,11 @@ void execute(const std::string& input) {
         if (cmd.size() == 1) {
             // cd without arguments
 #ifdef _WIN32
-            dir_now = getenv("USERPROFILE"); // Windows root
+            char* env = getenv("USERPROFILE");
+            dir_now = env ? std::string(env) : "C:\\"; 
 #else
-            dir_now = "~"; // Unix root
+            char* env = getenv("HOME");
+            dir_now = env ? std::string(env) : "/";
 #endif
             return;
         }
@@ -383,28 +550,46 @@ void execute(const std::string& input) {
         }
 #endif
     }
+
     // 在 execute 函数中添加插件管理命令处理
-    if (cmd[0] == "plugin" || cmd[0] == "plugins") {
+    if (cmd[0] == "plugin") {
         if (cmd.size() < 2) {
-            println(RED << BOLD << "Usage: plugin [install|uninstall|list|available] <plugin_name>" << RESET);
+            printf("Usage: plugin <command> [args...]\n");
+            printf("Commands: install-all, list, run <plugin_name> [args...]\n");
             return;
         }
 
-        if (cmd[1] == "install" && cmd.size() == 3) {
-            PluginManager::installPlugin(cmd[2]);
+        if (cmd[1] == "run") {
+            if (cmd.size() < 3) {
+                printf("Usage: plugin run <plugin_name> [args...]\n");
+                return;
+            }
+
+            std::string pluginName = cmd[2];
+            std::vector<std::string> pluginArgs(cmd.begin() + 3, cmd.end());
+            PluginManager::executePluginWithCommand(pluginName, pluginArgs);
         }
-        else if (cmd[1] == "uninstall" && cmd.size() == 3) {
-            PluginManager::uninstallPlugin(cmd[2]);
+        else if (cmd[1] == "install-all") {
+            PluginManager::installAllPlugins();
         }
         else if (cmd[1] == "list") {
             PluginManager::listInstalledPlugins();
+        }
+        else if (cmd[1] == "install" && cmd.size() >= 3) {
+            PluginManager::installPlugin(cmd[2]);
+        }
+        else if (cmd[1] == "uninstall" && cmd.size() >= 3) {
+            PluginManager::uninstallPlugin(cmd[2]);
         }
         else if (cmd[1] == "available") {
             PluginManager::listAvailablePlugins();
         }
         else {
-            println(RED << BOLD << "Invalid plugin command or missing argument." << RESET);
+            printf("Unknown plugin command: %s\n", cmd[1].c_str());
+            printf("Usage: plugin <command> [args...]\n");
+            printf("Commands: install-all, list, run, install, uninstall, available\n");
         }
+        return;
     }
 
     // 文件系统操作
@@ -459,39 +644,7 @@ void execute(const std::string& input) {
             }
         }
     }
-
-    // 在主命令循环中添加插件命令处理
-    // 在主命令处理逻辑中
-    // 在主命令处理逻辑中
-    if (cmd[0] == "plugin") {
-        if (cmd.size() < 2) {
-            printf("Usage: plugin <command> [args...]\n");
-            printf("Commands: install-all, list, run <plugin_name> [args...]\n");
-            return;
-        }
-
-        if (cmd[1] == "run") {
-            if (cmd.size() < 3) {
-                printf("Usage: plugin run <plugin_name> [args...]\n");
-                return;
-            }
-
-            std::string pluginName = cmd[2];
-            std::vector<std::string> pluginArgs(cmd.begin() + 3, cmd.end());
-            PluginManager::executePluginWithCommand(pluginName, pluginArgs);
-        }
-        else if (cmd[1] == "install-all") {
-            PluginManager::installAllPlugins();
-        }
-        else if (cmd[1] == "list") {
-            PluginManager::listInstalledPlugins();
-        }
-        else {
-            printf("Unknown plugin command: %s\n", cmd[1].c_str());
-        }
-    }
 }
-
 
 /**
  * The startup function for DuckShell includes no input parameter and yes parameters and returns an exit code.

@@ -1,7 +1,8 @@
 {
 	"InstallScripts" : 
 	[
-		"F:/Programming/jyx-program/C++/DuckShell/cmake_install.cmake"
+		"L:/programming/C++/DuckShell/cmake_install.cmake",
+		"L:/programming/C++/DuckShell/_deps/zlib-build/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

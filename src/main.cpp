@@ -2,9 +2,11 @@
 #include "plugins/plugins_manager.h"
 
 int main(int argc, char **argv) {
+
     // 调试信息输出
     //std::cout << "Home directory: " << home_dir << std::endl;
     //std::cout << "Current directory: " << dir_now << std::endl;
+
     // 构造duckshell配置目录和插件列表文件路径
     std::string duckshell_dir = home_dir + "/duckshell";
     std::string plugins_file = duckshell_dir + "/plugins.ls";
@@ -13,14 +15,14 @@ int main(int argc, char **argv) {
     // 检查并创建duckshell配置目录及插件文件
     struct stat info{};
     if (stat(duckshell_dir.c_str(), &info) != 0) {
-#ifdef _WIN64
+#ifdef _WIN32
         // Windows系统下创建目录
         _mkdir(duckshell_dir.c_str());
         _mkdir(plugins_dir.c_str());
 #else
         // Unix/Linux系统下创建目录，设置权限为0755
         mkdir(duckshell_dir.c_str(), 0755);
-        chmod(plugins_dir.c_str(), 0755);
+        mkdir(plugins_dir.c_str(), 0755);
 #endif
         // 创建空的插件列表文件
         std::ofstream outfile(plugins_file);
@@ -39,7 +41,7 @@ int main(int argc, char **argv) {
         }
 
         if (stat(plugins_dir.c_str(), &info) != 0) {
-#ifdef _WIN64
+#ifdef _WIN32
             // Windows系统下创建插件目录
             _mkdir(plugins_dir.c_str());
 #else
@@ -49,13 +51,9 @@ int main(int argc, char **argv) {
         }
     }
 
-    // 自动安装所有插件
-    PluginManager::installAllPlugins();
-
-    // 为特定插件分发命令参数
-    std::vector<std::string> commandArgs = {"arg1", "arg2", "arg3"};
-    PluginManager::executePluginWithCommand("HelloWorldPlugin.dll", commandArgs);
-
+    // 初始化插件系统
+    PluginManager::loadPlugins();
+    PluginManager::installAllPlugins(); // 扫描并安装所有插件
 
     if (argc < 2) {
         startup();

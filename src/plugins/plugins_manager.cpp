@@ -18,6 +18,14 @@
 #else
     #include <dirent.h>
     #include <vector>
+    #if defined(HAVE_LIBCURL)
+        #include <curl/curl.h>
+    #endif
+#endif
+
+#if defined(HAVE_MINIZIP)
+    #include <zlib.h>
+    #include <unzip.h>
 #endif
 
 
@@ -211,6 +219,27 @@ void PluginManager::listRemotePlugins() {
     else {
         printf("Failed to fetch plugin list from repository.\n");
     }
+#else
+    #if defined(HAVE_LIBCURL)
+        std::string jsonData;
+        if (downloadWithCurl(apiUrl, "temp_plugins.json")) {
+            std::ifstream tempFile("temp_plugins.json");
+            if (tempFile.is_open()) {
+                std::string line;
+                while (std::getline(tempFile, line)) {
+                    jsonData += line + "\n";
+                }
+                tempFile.close();
+                remove("temp_plugins.json");
+            }
+            printf("Available remote plugins:\n");
+            std::cout << jsonData << std::endl;
+        } else {
+            printf("Failed to fetch plugin list from repository.\n");
+        }
+    #else
+        printf("Remote repository feature is not available in this build (libcurl not enabled).\n");
+    #endif
 #endif
 }
 
@@ -228,12 +257,41 @@ void PluginManager::downloadPlugin(const std::string& pluginName) {
 #ifdef _WIN32
     if (downloadWithWinInet(downloadUrl, localPath)) {
         printf("Plugin '%s' downloaded successfully.\n", pluginName.c_str());
-        // 这里可以添加解压逻辑
     }
     else {
         printf("Failed to download plugin '%s'\n", pluginName.c_str());
         remove(localPath.c_str()); // 删除失败的下载文件
+        return;
     }
+#else
+    #if defined(HAVE_LIBCURL)
+        if (downloadWithCurl(downloadUrl, localPath)) {
+            printf("Plugin '%s' downloaded successfully.\n", pluginName.c_str());
+        } else {
+            printf("Failed to download plugin '%s'\n", pluginName.c_str());
+            remove(localPath.c_str());
+            return;
+        }
+    #else
+        printf("Remote repository download is not available in this build (libcurl not enabled).\n");
+        return;
+    #endif
+#endif
+
+    // 下载成功后尝试自动解压（需要 minizip）。
+    const std::string pluginsDir = home_dir + "/duckshell/plugins";
+#if defined(HAVE_MINIZIP)
+    if (unzipFile(localPath, pluginsDir)) {
+        // 解压成功后，删除 zip 包并刷新已安装列表
+        remove(localPath.c_str());
+        installAllPlugins();
+    } else {
+        printf("Downloaded but failed to extract '%s'. You can extract manually: %s\n",
+               pluginName.c_str(), localPath.c_str());
+    }
+#else
+    printf("Zip extraction is not enabled in this build (minizip not found). The archive remains at: %s\n",
+           localPath.c_str());
 #endif
 }
 
@@ -248,8 +306,9 @@ void PluginManager::installAllPlugins() {
 
     printf("Scanning for plugins to install...\n");
 
-    // 记录当前已安装的插件数量
-    size_t initialCount = installed_plugins.size();
+    // 记录初始插件数量
+    size_t initialPluginCount = installed_plugins.size();
+    bool hasNewPlugins = false;
 
     for (const auto& item : contents) {
         // 检查是否为插件文件（根据扩展名判断）
@@ -261,6 +320,7 @@ void PluginManager::installAllPlugins() {
                 // 只有未安装的插件才添加
                 installed_plugins[item] = true;
                 printf("Plugin '%s' added for installation.\n", item.c_str());
+                hasNewPlugins = true;
             } else {
                 printf("Plugin '%s' already installed.\n", item.c_str());
             }
@@ -268,8 +328,8 @@ void PluginManager::installAllPlugins() {
     }
 
     // 只有在有新插件添加时才重写文件
-    if (installed_plugins.size() > initialCount) {
-        // 重新写入整个插件列表文件
+    if (hasNewPlugins) {
+        // 重新写入整个插件列表文件，而不是追加
         std::string pluginsListFile = home_dir + "/duckshell/plugins.ls";
         std::ofstream outfile(pluginsListFile);
         if (outfile.is_open()) {
@@ -282,6 +342,52 @@ void PluginManager::installAllPlugins() {
     } else {
         printf("No new plugins to install.\n");
     }
+}
+
+std::map<std::string, std::string> PluginManager::command_to_plugin_map;
+
+void PluginManager::buildCommandMap() {
+    command_to_plugin_map.clear();
+
+    for (const auto& pair : installed_plugins) {
+        if (pair.second) { // 只处理启用的插件
+            std::string pluginPath = home_dir + "/duckshell/plugins/" + pair.first;
+
+#ifdef _WIN32
+            HMODULE handle = LoadLibraryA(pluginPath.c_str());
+            if (handle) {
+                CreatePluginFunc createFunc = (CreatePluginFunc)GetProcAddress(handle, "createPlugin");
+                if (createFunc) {
+                    IPlugin* plugin = createFunc();
+                    if (plugin) {
+                        // 获取插件支持的命令别名
+                        auto aliases = plugin->getCommandAliases();
+                        for (const auto& alias : aliases) {
+                            command_to_plugin_map[alias] = pair.first;
+                        }
+
+                        if (auto destroyFunc = reinterpret_cast<DestroyPluginFunc>(GetProcAddress(handle, "destroyPlugin"))) {
+                            destroyFunc(plugin);
+                        }
+                    }
+                }
+                FreeLibrary(handle);
+            }
+#endif
+        }
+    }
+}
+
+void PluginManager::executeCommand(const std::string& command, const std::vector<std::string>& cmdArgs) {
+    // 查找命令对应的插件
+    auto it = command_to_plugin_map.find(command);
+    if (it == command_to_plugin_map.end()) {
+        printf("Unknown command: %s\n", command.c_str());
+        return;
+    }
+
+    std::string pluginName = it->second;
+    executePluginWithCommand(pluginName, cmdArgs);
 }
 
 // 在 plugins_manager.cpp 中添加实现
@@ -382,7 +488,6 @@ std::string PluginManager::resolvePluginName(const std::string& pluginName) {
     return pluginName;
 }
 
-
 #ifdef _WIN32
 // Windows平台使用WinINet下载文件
 bool PluginManager::downloadWithWinInet(const std::string& url, const std::string& outputFile) {
@@ -443,3 +548,135 @@ bool PluginManager::downloadWithWinInet(const std::string& url, const std::strin
     return true;
 }
 #endif
+
+#if !defined(_WIN32) && defined(HAVE_LIBCURL)
+// Linux/Unix 平台使用 libcurl 下载文件
+namespace {
+    size_t write_data(void* ptr, size_t size, size_t nmemb, void* stream) {
+        FILE* fp = static_cast<FILE*>(stream);
+        return fwrite(ptr, size, nmemb, fp);
+    }
+}
+
+bool PluginManager::downloadWithCurl(const std::string& url, const std::string& outputFile) {
+    CURL* curl = curl_easy_init();
+    if (!curl) return false;
+
+    FILE* fp = fopen(outputFile.c_str(), "wb");
+    if (!fp) {
+        curl_easy_cleanup(curl);
+        return false;
+    }
+
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "DuckShell/1.0");
+    // 合理的超时设置
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
+
+    CURLcode res = curl_easy_perform(curl);
+    fclose(fp);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK) {
+        remove(outputFile.c_str());
+        return false;
+    }
+    return true;
+}
+#endif
+
+// ZIP 解压实现（基于 minizip 经典 API）。
+// 仅当定义了 HAVE_MINIZIP 时可用；否则返回 false。
+bool PluginManager::unzipFile(const std::string& zipPath, const std::string& outDir) {
+#if defined(HAVE_MINIZIP)
+    auto ensure_dir = [](const std::string& path) {
+#ifdef _WIN32
+        // 递归创建目录（简单实现）
+        std::string curr;
+        for (size_t i = 0; i < path.size(); ++i) {
+            char c = path[i];
+            curr.push_back(c);
+            if (c == '\\' || c == '/') {
+                if (curr.size() > 1) CreateDirectoryA(curr.c_str(), nullptr);
+            }
+        }
+        if (!curr.empty()) CreateDirectoryA(curr.c_str(), nullptr);
+#else
+        // POSIX 递归创建目录
+        std::string curr;
+        for (size_t i = 0; i < path.size(); ++i) {
+            char c = path[i];
+            curr.push_back(c);
+            if (c == '/') {
+                if (curr.size() > 1) mkdir(curr.c_str(), 0755);
+            }
+        }
+        if (!curr.empty()) mkdir(curr.c_str(), 0755);
+#endif
+    };
+
+    unzFile uf = unzOpen(zipPath.c_str());
+    if (!uf) {
+        printf("Failed to open zip: %s\n", zipPath.c_str());
+        return false;
+    }
+
+    if (unzGoToFirstFile(uf) != UNZ_OK) {
+        unzClose(uf);
+        printf("Empty or invalid zip: %s\n", zipPath.c_str());
+        return false;
+    }
+
+    do {
+        char filename_inzip[512] = {0};
+        unz_file_info file_info{};
+        if (unzGetCurrentFileInfo(uf, &file_info, filename_inzip, sizeof(filename_inzip), nullptr, 0, nullptr, 0) != UNZ_OK) {
+            unzClose(uf);
+            printf("Failed to read file info in zip: %s\n", zipPath.c_str());
+            return false;
+        }
+
+        std::string fullPath = outDir + "/" + filename_inzip;
+        // 目录条目
+        if (filename_inzip[strlen(filename_inzip)-1] == '/' || filename_inzip[strlen(filename_inzip)-1] == '\\') {
+            ensure_dir(fullPath);
+        } else {
+            // 创建父目录
+            size_t pos = fullPath.find_last_of("/\\");
+            if (pos != std::string::npos) ensure_dir(fullPath.substr(0, pos));
+
+            if (unzOpenCurrentFile(uf) != UNZ_OK) {
+                unzClose(uf);
+                printf("Failed to open entry in zip: %s\n", filename_inzip);
+                return false;
+            }
+
+            FILE* fp = fopen(fullPath.c_str(), "wb");
+            if (!fp) {
+                unzCloseCurrentFile(uf);
+                unzClose(uf);
+                printf("Failed to create file: %s\n", fullPath.c_str());
+                return false;
+            }
+
+            char buf[8192];
+            int readBytes = 0;
+            while ((readBytes = unzReadCurrentFile(uf, buf, sizeof(buf))) > 0) {
+                fwrite(buf, 1, static_cast<size_t>(readBytes), fp);
+            }
+            fclose(fp);
+            unzCloseCurrentFile(uf);
+        }
+    } while (unzGoToNextFile(uf) == UNZ_OK);
+
+    unzClose(uf);
+    return true;
+#else
+    (void)zipPath; (void)outDir;
+    return false;
+#endif
+}

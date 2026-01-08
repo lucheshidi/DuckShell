@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"L:/programming/C++/DuckShell/_deps/zlib-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

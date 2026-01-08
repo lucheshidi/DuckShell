@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/CMakeFiles/minizip_src-populate"
+		},
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/CMakeFiles/minizip_src-populate.rule"
+		},
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/CMakeFiles/minizip_src-populate-complete.rule"
+		},
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/minizip_src-populate-prefix/src/minizip_src-populate-stamp/minizip_src-populate-build.rule"
+		},
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/minizip_src-populate-prefix/src/minizip_src-populate-stamp/minizip_src-populate-configure.rule"
+		},
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/minizip_src-populate-prefix/src/minizip_src-populate-stamp/minizip_src-populate-download.rule"
+		},
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/minizip_src-populate-prefix/src/minizip_src-populate-stamp/minizip_src-populate-install.rule"
+		},
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/minizip_src-populate-prefix/src/minizip_src-populate-stamp/minizip_src-populate-mkdir.rule"
+		},
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/minizip_src-populate-prefix/src/minizip_src-populate-stamp/minizip_src-populate-patch.rule"
+		},
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/minizip_src-populate-prefix/src/minizip_src-populate-stamp/minizip_src-populate-test.rule"
+		},
+		{
+			"file" : "L:/programming/C++/DuckShell/_deps/minizip_src-subbuild/minizip_src-populate-prefix/src/minizip_src-populate-stamp/minizip_src-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"minizip_src-populate"
+		],
+		"name" : "minizip_src-populate"
+	}
+}

@@ -28,12 +28,11 @@ jobs:
           cmake-version: 'latest'
         timeout-minutes: 15
 
-      - name: Install G++ on macOS
+      - name: Install Dependencies on macOS
         run: |
-          brew install gcc
-          ls /opt/homebrew/bin/g++* || ls /usr/local/bin/g++* 
-          g++-13 --version || echo "Trying to find available g++ version..."
-          g++ --version
+          brew install gcc curl
+          # Ensure g++-13 is available or use standard g++
+          # macOS usually has curl headers, but brew's might be newer
         timeout-minutes: 15
 
       - name: Configure CMake on macOS AMD64

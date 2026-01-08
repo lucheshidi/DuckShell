@@ -25,12 +25,11 @@ const std::string ITALIC = "\033[3m";
 const std::string UNDER = "\033[4m";
 const std::string BLINK = "\033[5m";
 
-#ifdef _WIN64
+#ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
 #include <wininet.h>
 #pragma comment(lib, "wininet.lib")
-#include <windows.h>
 #include <direct.h>
 #elif __unix__
 #include <unistd.h>

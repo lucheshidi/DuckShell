@@ -36,6 +36,17 @@ public:
 
     // 错误处理
     virtual std::string getLastError() const = 0;
+
+    // 新增：获取插件支持的命令别名
+    virtual std::vector<std::string> getCommandAliases() const {
+        return {getName()}; // 默认返回插件名称
+    }
+
+    // 新增：检查是否支持某个命令
+    virtual bool supportsCommand(const std::string& command) const {
+        auto aliases = getCommandAliases();
+        return std::find(aliases.begin(), aliases.end(), command) != aliases.end();
+    }
 };
 
 // 插件工厂函数指针类型

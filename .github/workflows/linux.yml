@@ -28,19 +28,17 @@ jobs:
           cmake-version: 'latest'
         timeout-minutes: 15
 
-      - name: Install G++ on Linux AMD64
-        if: matrix.architecture == 'amd64'
+      - name: Install Dependencies on Linux
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++
-          echo "G++ installation completed with exit code $?"
+          sudo apt-get install -y g++ libcurl4-openssl-dev
+          echo "Dependencies installation completed"
 
-      - name: Install G++ on Linux ARM64
+      - name: Install G++ ARM64 Cross Compiler
         if: matrix.architecture == 'arm64'
         run: |
-          sudo apt-get update
           sudo apt-get install -y g++-aarch64-linux-gnu
-          echo "G++ ARM64 installation completed with exit code $?"
+          echo "G++ ARM64 installation completed"
 
       - name: Configure CMake on Linux ARM64
         if: matrix.architecture == 'arm64'

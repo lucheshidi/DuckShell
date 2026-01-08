@@ -3,11 +3,13 @@
 
 // 定义全局变量
 std::string home_dir = []() {
-#ifdef _WIN64
-return std::string(getenv("USERPROFILE"));
+    char* env = nullptr;
+#ifdef _WIN32
+    env = getenv("USERPROFILE");
 #else
-return std::string(getenv("HOME"));
+    env = getenv("HOME");
 #endif
+    return env ? std::string(env) : ".";
 }();
 
 std::string dir_now = home_dir;
