@@ -14,6 +14,7 @@ jobs:
   build:
     runs-on: macos-latest
     strategy:
+      fail-fast: false
       matrix:
         architecture: [ amd64, arm64 ]
 
@@ -31,8 +32,8 @@ jobs:
       - name: Install Dependencies on macOS
         run: |
           brew install gcc curl
-          # Ensure g++-13 is available or use standard g++
-          # macOS usually has curl headers, but brew's might be newer
+          # Ensure g++ is available. Brew's gcc might provide g++-13 or g++-14.
+          # We'll use 'g++' which should point to brew's gcc if we link it or use the versioned command.
         timeout-minutes: 15
 
       - name: Configure CMake on macOS AMD64
@@ -40,14 +41,14 @@ jobs:
         run: |
           cmake -B ${{github.workspace}}/build \
                 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-                -DCMAKE_CXX_COMPILER=g++-13
+                -DCMAKE_CXX_COMPILER=g++
 
       - name: Configure CMake on macOS ARM64
         if: matrix.architecture == 'arm64'
         run: |
           cmake -B ${{github.workspace}}/build \
                 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
-                -DCMAKE_CXX_COMPILER=g++-13 \
+                -DCMAKE_CXX_COMPILER=g++ \
                 -DCMAKE_OSX_ARCHITECTURES=arm64
 
       - name: Build

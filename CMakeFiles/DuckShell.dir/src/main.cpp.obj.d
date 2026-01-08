@@ -394,4 +394,5 @@ CMakeFiles/DuckShell.dir/src/main.cpp.obj: \
  D:/msys64/ucrt64/include/c++/15.2.0/bits/node_handle.h \
  D:/msys64/ucrt64/include/c++/15.2.0/bits/stl_map.h \
  D:/msys64/ucrt64/include/c++/15.2.0/bits/stl_multimap.h \
- D:/msys64/ucrt64/include/c++/15.2.0/bits/erase_if.h
+ D:/msys64/ucrt64/include/c++/15.2.0/bits/erase_if.h \
+ L:/programming/C++/DuckShell/generated/version.h
