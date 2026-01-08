@@ -1,0 +1,220 @@
+rm '.cmake/api/v1/query/cache-v2'
+rm '.cmake/api/v1/query/cmakeFiles-v1'
+rm '.cmake/api/v1/query/codemodel-v2'
+rm '.cmake/api/v1/query/toolchains-v1'
+rm '.cmake/api/v1/reply/cache-v2-c33116c7ae73f15123c6.json'
+rm '.cmake/api/v1/reply/cmakeFiles-v1-608d96cc9c8419d46ce1.json'
+rm '.cmake/api/v1/reply/codemodel-v2-ceae5a4c2e1bfd697e15.json'
+rm '.cmake/api/v1/reply/directory-.-Debug-f6f22219c74102c3da70.json'
+rm '.cmake/api/v1/reply/directory-_deps.zlib-build-Debug-a0e2a3483250bed2fe93.json'
+rm '.cmake/api/v1/reply/index-2026-01-08T13-09-05-0936.json'
+rm '.cmake/api/v1/reply/target-DuckShell-Debug-2ba25ee6c69d4c12b311.json'
+rm '.cmake/api/v1/reply/target-Git__Git-Debug-3875f963931d9c878c09.json'
+rm '.cmake/api/v1/reply/target-example-Debug-c4478e224282ee5f1cc6.json'
+rm '.cmake/api/v1/reply/target-example64-Debug-b82f03f2e83d854668d6.json'
+rm '.cmake/api/v1/reply/target-minigzip-Debug-43ad89443c213909bf30.json'
+rm '.cmake/api/v1/reply/target-minigzip64-Debug-0f6d0278ce9a1b13b021.json'
+rm '.cmake/api/v1/reply/target-minizip-Debug-db1d6d1fe735ef094e25.json'
+rm '.cmake/api/v1/reply/target-zlib-Debug-1f43239c6e3c6e387495.json'
+rm '.cmake/api/v1/reply/target-zlibstatic-Debug-cde17027ced526582af1.json'
+rm '.cmake/api/v1/reply/toolchains-v1-98c17645870014e8916e.json'
+rm '.gitattributes'
+rm '.github/workflows/linux.yml'
+rm '.github/workflows/macos.yml'
+rm '.github/workflows/windows.yml'
+rm '.gitignore'
+rm '.idea/.gitignore'
+rm '.idea/DuckShell.iml'
+rm '.idea/editor.xml'
+rm '.idea/git_toolbox_prj.xml'
+rm '.idea/inspectionProfiles/Project_Default.xml'
+rm '.idea/misc.xml'
+rm '.idea/modules.xml'
+rm '.idea/vcs.xml'
+rm 'CMakeCache.txt'
+rm 'CMakeFiles/4.2.1/CMakeCCompiler.cmake'
+rm 'CMakeFiles/4.2.1/CMakeCXXCompiler.cmake'
+rm 'CMakeFiles/4.2.1/CMakeDetermineCompilerABI_C.bin'
+rm 'CMakeFiles/4.2.1/CMakeDetermineCompilerABI_CXX.bin'
+rm 'CMakeFiles/4.2.1/CMakeRCCompiler.cmake'
+rm 'CMakeFiles/4.2.1/CMakeSystem.cmake'
+rm 'CMakeFiles/4.2.1/CompilerIdC/CMakeCCompilerId.c'
+rm 'CMakeFiles/4.2.1/CompilerIdC/a.exe'
+rm 'CMakeFiles/4.2.1/CompilerIdCXX/CMakeCXXCompilerId.cpp'
+rm 'CMakeFiles/4.2.1/CompilerIdCXX/a.exe'
+rm 'CMakeFiles/CMakeConfigureLog.yaml'
+rm 'CMakeFiles/CMakeDirectoryInformation.cmake'
+rm 'CMakeFiles/CMakeRuleHashes.txt'
+rm 'CMakeFiles/CheckTypeSize/OFF64_T.bin'
+rm 'CMakeFiles/DuckShell.dir/DependInfo.cmake'
+rm 'CMakeFiles/DuckShell.dir/build.make'
+rm 'CMakeFiles/DuckShell.dir/cmake_clean.cmake'
+rm 'CMakeFiles/DuckShell.dir/compiler_depend.make'
+rm 'CMakeFiles/DuckShell.dir/compiler_depend.ts'
+rm 'CMakeFiles/DuckShell.dir/depend.make'
+rm 'CMakeFiles/DuckShell.dir/flags.make'
+rm 'CMakeFiles/DuckShell.dir/includes_CXX.rsp'
+rm 'CMakeFiles/DuckShell.dir/link.txt'
+rm 'CMakeFiles/DuckShell.dir/linkLibs.rsp'
+rm 'CMakeFiles/DuckShell.dir/objects.a'
+rm 'CMakeFiles/DuckShell.dir/objects1.rsp'
+rm 'CMakeFiles/DuckShell.dir/progress.make'
+rm 'CMakeFiles/DuckShell.dir/src/global_vars.cpp.obj'
+rm 'CMakeFiles/DuckShell.dir/src/global_vars.cpp.obj.d'
+rm 'CMakeFiles/DuckShell.dir/src/main.cpp.obj'
+rm 'CMakeFiles/DuckShell.dir/src/main.cpp.obj.d'
+rm 'CMakeFiles/DuckShell.dir/src/plugins/plugins_manager.cpp.obj'
+rm 'CMakeFiles/DuckShell.dir/src/plugins/plugins_manager.cpp.obj.d'
+rm 'CMakeFiles/DuckShell.dir/src/shell/main_shell.cpp.obj'
+rm 'CMakeFiles/DuckShell.dir/src/shell/main_shell.cpp.obj.d'
+rm 'CMakeFiles/InstallScripts.json'
+rm 'CMakeFiles/Makefile.cmake'
+rm 'CMakeFiles/Makefile2'
+rm 'CMakeFiles/TargetDirectories.txt'
+rm 'CMakeFiles/clion-Debug-log.txt'
+rm 'CMakeFiles/clion-environment.txt'
+rm 'CMakeFiles/cmake.check_cache'
+rm 'CMakeFiles/minizip.dir/DependInfo.cmake'
+rm 'CMakeFiles/minizip.dir/_deps/minizip_src-src/ioapi.c.obj'
+rm 'CMakeFiles/minizip.dir/_deps/minizip_src-src/ioapi.c.obj.d'
+rm 'CMakeFiles/minizip.dir/_deps/minizip_src-src/iowin32.c.obj'
+rm 'CMakeFiles/minizip.dir/_deps/minizip_src-src/iowin32.c.obj.d'
+rm 'CMakeFiles/minizip.dir/_deps/minizip_src-src/unzip.c.obj'
+rm 'CMakeFiles/minizip.dir/_deps/minizip_src-src/unzip.c.obj.d'
+rm 'CMakeFiles/minizip.dir/build.make'
+rm 'CMakeFiles/minizip.dir/cmake_clean.cmake'
+rm 'CMakeFiles/minizip.dir/cmake_clean_target.cmake'
+rm 'CMakeFiles/minizip.dir/compiler_depend.make'
+rm 'CMakeFiles/minizip.dir/compiler_depend.ts'
+rm 'CMakeFiles/minizip.dir/depend.make'
+rm 'CMakeFiles/minizip.dir/flags.make'
+rm 'CMakeFiles/minizip.dir/includes_C.rsp'
+rm 'CMakeFiles/minizip.dir/link.txt'
+rm 'CMakeFiles/minizip.dir/progress.make'
+rm 'CMakeFiles/progress.marks'
+rm 'CMakeLists.txt'
+rm 'DuckShell.exe'
+rm 'ExamplePlugins/HelloWorld/src/HelloWorldPlugin.dll'
+rm 'ExamplePlugins/HelloWorld/src/main.cpp'
+rm 'ExamplePlugins/HelloWorld/src/plugins_interface.h'
+rm 'Makefile'
+rm 'README.md'
+rm 'README_zh-CN.md'
+rm '_deps/minizip_src-src'
+rm '_deps/zlib-src'
+rm 'cmake-multi-platform.yml'
+rm 'cmake_install.cmake'
+rm 'generated/version.h'
+rm 'libminizip.a'
+rm 'src/global_vars.cpp'
+rm 'src/global_vars.h'
+rm 'src/header.h'
+rm 'src/main.cpp'
+rm 'src/plugins/plugins_interface.h'
+rm 'src/plugins/plugins_manager.cpp'
+rm 'src/plugins/plugins_manager.h'
+rm 'src/shell/main_shell.cpp'
+rm 'src/version.h.in'
+warning: in the working copy of '.gitattributes', LF will be replaced by CRLF the next time Git touches it
+On branch master
+Your branch is up to date with 'origin/master'.
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+        deleted:    .cmake/api/v1/query/cache-v2
+        deleted:    .cmake/api/v1/query/cmakeFiles-v1
+        deleted:    .cmake/api/v1/query/codemodel-v2
+        deleted:    .cmake/api/v1/query/toolchains-v1
+        deleted:    .cmake/api/v1/reply/cache-v2-c33116c7ae73f15123c6.json
+        deleted:    .cmake/api/v1/reply/cmakeFiles-v1-608d96cc9c8419d46ce1.json
+        deleted:    .cmake/api/v1/reply/codemodel-v2-ceae5a4c2e1bfd697e15.json
+        deleted:    .cmake/api/v1/reply/directory-.-Debug-f6f22219c74102c3da70.json
+        deleted:    .cmake/api/v1/reply/directory-_deps.zlib-build-Debug-a0e2a3483250bed2fe93.json
+        deleted:    .cmake/api/v1/reply/index-2026-01-08T13-09-05-0936.json
+        deleted:    .cmake/api/v1/reply/target-DuckShell-Debug-2ba25ee6c69d4c12b311.json
+        deleted:    .cmake/api/v1/reply/target-Git__Git-Debug-3875f963931d9c878c09.json
+        deleted:    .cmake/api/v1/reply/target-example-Debug-c4478e224282ee5f1cc6.json
+        deleted:    .cmake/api/v1/reply/target-example64-Debug-b82f03f2e83d854668d6.json
+        deleted:    .cmake/api/v1/reply/target-minigzip-Debug-43ad89443c213909bf30.json
+        deleted:    .cmake/api/v1/reply/target-minigzip64-Debug-0f6d0278ce9a1b13b021.json
+        deleted:    .cmake/api/v1/reply/target-minizip-Debug-db1d6d1fe735ef094e25.json
+        deleted:    .cmake/api/v1/reply/target-zlib-Debug-1f43239c6e3c6e387495.json
+        deleted:    .cmake/api/v1/reply/target-zlibstatic-Debug-cde17027ced526582af1.json
+        deleted:    .cmake/api/v1/reply/toolchains-v1-98c17645870014e8916e.json
+        modified:   .gitignore
+        deleted:    .idea/.gitignore
+        deleted:    .idea/DuckShell.iml
+        deleted:    .idea/editor.xml
+        deleted:    .idea/git_toolbox_prj.xml
+        deleted:    .idea/inspectionProfiles/Project_Default.xml
+        deleted:    .idea/misc.xml
+        deleted:    .idea/modules.xml
+        deleted:    .idea/vcs.xml
+        deleted:    CMakeCache.txt
+        deleted:    CMakeFiles/4.2.1/CMakeCCompiler.cmake
+        deleted:    CMakeFiles/4.2.1/CMakeCXXCompiler.cmake
+        deleted:    CMakeFiles/4.2.1/CMakeDetermineCompilerABI_C.bin
+        deleted:    CMakeFiles/4.2.1/CMakeDetermineCompilerABI_CXX.bin
+        deleted:    CMakeFiles/4.2.1/CMakeRCCompiler.cmake
+        deleted:    CMakeFiles/4.2.1/CMakeSystem.cmake
+        deleted:    CMakeFiles/4.2.1/CompilerIdC/CMakeCCompilerId.c
+        deleted:    CMakeFiles/4.2.1/CompilerIdC/a.exe
+        deleted:    CMakeFiles/4.2.1/CompilerIdCXX/CMakeCXXCompilerId.cpp
+        deleted:    CMakeFiles/4.2.1/CompilerIdCXX/a.exe
+        deleted:    CMakeFiles/CMakeConfigureLog.yaml
+        deleted:    CMakeFiles/CMakeDirectoryInformation.cmake
+        deleted:    CMakeFiles/CMakeRuleHashes.txt
+        deleted:    CMakeFiles/CheckTypeSize/OFF64_T.bin
+        deleted:    CMakeFiles/DuckShell.dir/DependInfo.cmake
+        deleted:    CMakeFiles/DuckShell.dir/build.make
+        deleted:    CMakeFiles/DuckShell.dir/cmake_clean.cmake
+        deleted:    CMakeFiles/DuckShell.dir/compiler_depend.make
+        deleted:    CMakeFiles/DuckShell.dir/compiler_depend.ts
+        deleted:    CMakeFiles/DuckShell.dir/depend.make
+        deleted:    CMakeFiles/DuckShell.dir/flags.make
+        deleted:    CMakeFiles/DuckShell.dir/includes_CXX.rsp
+        deleted:    CMakeFiles/DuckShell.dir/link.txt
+        deleted:    CMakeFiles/DuckShell.dir/linkLibs.rsp
+        deleted:    CMakeFiles/DuckShell.dir/objects.a
+        deleted:    CMakeFiles/DuckShell.dir/objects1.rsp
+        deleted:    CMakeFiles/DuckShell.dir/progress.make
+        deleted:    CMakeFiles/DuckShell.dir/src/global_vars.cpp.obj
+        deleted:    CMakeFiles/DuckShell.dir/src/global_vars.cpp.obj.d
+        deleted:    CMakeFiles/DuckShell.dir/src/main.cpp.obj
+        deleted:    CMakeFiles/DuckShell.dir/src/main.cpp.obj.d
+        deleted:    CMakeFiles/DuckShell.dir/src/plugins/plugins_manager.cpp.obj
+        deleted:    CMakeFiles/DuckShell.dir/src/plugins/plugins_manager.cpp.obj.d
+        deleted:    CMakeFiles/DuckShell.dir/src/shell/main_shell.cpp.obj
+        deleted:    CMakeFiles/DuckShell.dir/src/shell/main_shell.cpp.obj.d
+        deleted:    CMakeFiles/InstallScripts.json
+        deleted:    CMakeFiles/Makefile.cmake
+        deleted:    CMakeFiles/Makefile2
+        deleted:    CMakeFiles/TargetDirectories.txt
+        deleted:    CMakeFiles/clion-Debug-log.txt
+        deleted:    CMakeFiles/clion-environment.txt
+        deleted:    CMakeFiles/cmake.check_cache
+        deleted:    CMakeFiles/minizip.dir/DependInfo.cmake
+        deleted:    CMakeFiles/minizip.dir/_deps/minizip_src-src/ioapi.c.obj
+        deleted:    CMakeFiles/minizip.dir/_deps/minizip_src-src/ioapi.c.obj.d
+        deleted:    CMakeFiles/minizip.dir/_deps/minizip_src-src/iowin32.c.obj
+        deleted:    CMakeFiles/minizip.dir/_deps/minizip_src-src/iowin32.c.obj.d
+        deleted:    CMakeFiles/minizip.dir/_deps/minizip_src-src/unzip.c.obj
+        deleted:    CMakeFiles/minizip.dir/_deps/minizip_src-src/unzip.c.obj.d
+        deleted:    CMakeFiles/minizip.dir/build.make
+        deleted:    CMakeFiles/minizip.dir/cmake_clean.cmake
+        deleted:    CMakeFiles/minizip.dir/cmake_clean_target.cmake
+        deleted:    CMakeFiles/minizip.dir/compiler_depend.make
+        deleted:    CMakeFiles/minizip.dir/compiler_depend.ts
+        deleted:    CMakeFiles/minizip.dir/depend.make
+        deleted:    CMakeFiles/minizip.dir/flags.make
+        deleted:    CMakeFiles/minizip.dir/includes_C.rsp
+        deleted:    CMakeFiles/minizip.dir/link.txt
+        deleted:    CMakeFiles/minizip.dir/progress.make
+        deleted:    CMakeFiles/progress.marks
+        deleted:    DuckShell.exe
+        deleted:    ExamplePlugins/HelloWorld/src/HelloWorldPlugin.dll
+        deleted:    Makefile
+        deleted:    _deps/minizip_src-src
+        deleted:    _deps/zlib-src
+        deleted:    cmake_install.cmake
+        deleted:    generated/version.h
+        deleted:    libminizip.a
