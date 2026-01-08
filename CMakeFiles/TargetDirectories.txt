@@ -1,20 +1,3 @@
-L:/programming/C++/DuckShell/CMakeFiles/minizip.dir
-L:/programming/C++/DuckShell/CMakeFiles/DuckShell.dir
-L:/programming/C++/DuckShell/CMakeFiles/edit_cache.dir
-L:/programming/C++/DuckShell/CMakeFiles/rebuild_cache.dir
-L:/programming/C++/DuckShell/CMakeFiles/list_install_components.dir
-L:/programming/C++/DuckShell/CMakeFiles/install.dir
-L:/programming/C++/DuckShell/CMakeFiles/install/local.dir
-L:/programming/C++/DuckShell/CMakeFiles/install/strip.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/zlib.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/zlibstatic.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/example.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/minigzip.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/example64.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/minigzip64.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/edit_cache.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/rebuild_cache.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/list_install_components.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/install.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/install/local.dir
-L:/programming/C++/DuckShell/_deps/zlib-build/CMakeFiles/install/strip.dir
+version https://git-lfs.github.com/spec/v1
+oid sha256:385e8a4297b92a73ae64ed2810b727636103fc0d4f4b2950092d08ec4d593237
+size 1346

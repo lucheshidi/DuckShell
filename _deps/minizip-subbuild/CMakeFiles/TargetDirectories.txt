@@ -1,3 +1,0 @@
-L:/programming/C++/DuckShell/_deps/minizip-subbuild/CMakeFiles/minizip-populate.dir
-L:/programming/C++/DuckShell/_deps/minizip-subbuild/CMakeFiles/edit_cache.dir
-L:/programming/C++/DuckShell/_deps/minizip-subbuild/CMakeFiles/rebuild_cache.dir

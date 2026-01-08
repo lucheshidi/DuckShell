@@ -5,6 +5,8 @@
 ./Makefile
 ./.cmake
 
+./_deps
+
 # Build Cache File
 ./DuckShell.exe
 
