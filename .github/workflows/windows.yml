@@ -42,7 +42,6 @@ jobs:
           update: true
           install: >-
             ${{ matrix.pkg_prefix }}-toolchain
-            ${{ matrix.pkg_prefix }}-cmake
           cache: true
         timeout-minutes: 90
 
