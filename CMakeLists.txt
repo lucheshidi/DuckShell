@@ -14,6 +14,10 @@ include(FetchContent)
 # ================= Options =================
 option(ENABLE_REMOTE_REPO "Enable remote plugin repository features" ON)
 
+# Disable zlib shared libs and examples to speed up and simplify cross-compilation
+set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
 # ================= Dependencies =================
 
 # 1. ZLIB & Minizip (Always needed for plugin extraction)
