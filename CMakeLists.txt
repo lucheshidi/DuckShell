@@ -74,6 +74,9 @@ target_include_directories(DuckShell PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generat
 if(MINGW)
     set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
     add_definitions(-D_WIN32_WINNT=0x0601)
+elseif(MSVC)
+    # Static runtime for MSVC to keep it lightweight
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
 if(WIN32)
