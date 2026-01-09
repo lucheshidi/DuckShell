@@ -40,6 +40,7 @@ jobs:
         with:
           msystem: ${{ matrix.msystem }}
           update: true
+          path-type: inherit
           install: >-
             ${{ matrix.pkg_prefix }}-toolchain
           cache: true
