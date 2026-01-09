@@ -26,6 +26,7 @@
 #if defined(HAVE_MINIZIP)
     #include <zlib.h>
     #include <unzip.h>
+    #include <cstring>
 #endif
 
 
