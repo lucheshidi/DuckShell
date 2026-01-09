@@ -24,7 +24,7 @@ jobs:
           - architecture: aarch64
             msystem: MINGW64
             pkg_prefix: mingw-w64-x86_64
-            extra_cmake_args: -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_FLAGS="-target aarch64-w64-windows-gnu" -DCMAKE_C_FLAGS="-target aarch64-w64-windows-gnu" -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
+            extra_cmake_args: -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_FLAGS="-target aarch64-w64-mingw32 -fuse-ld=lld" -DCMAKE_C_FLAGS="-target aarch64-w64-mingw32 -fuse-ld=lld" -DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DBUILD_SHARED_LIBS=OFF
 
     defaults:
       run:
