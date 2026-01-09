@@ -22,9 +22,9 @@ jobs:
             msystem: MINGW64
             pkg_prefix: mingw-w64-x86_64
           - architecture: aarch64
-            msystem: CLANGARM64
-            pkg_prefix: mingw-w64-clang-aarch64
-            extra_cmake_args: -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
+            msystem: MINGW64
+            pkg_prefix: mingw-w64-x86_64
+            extra_cmake_args: -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_FLAGS="-target aarch64-w64-windows-gnu" -DCMAKE_C_FLAGS="-target aarch64-w64-windows-gnu" -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=ARM64 -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY
 
     defaults:
       run:
@@ -44,6 +44,7 @@ jobs:
           path-type: inherit
           install: >-
             ${{ matrix.pkg_prefix }}-toolchain
+            ${{ matrix.pkg_prefix }}-clang
           cache: true
         timeout-minutes: 90
 
