@@ -1,4 +1,3 @@
-# .github/workflows/windows.yml
 name: Windows Build
 
 on:
@@ -20,11 +19,10 @@ jobs:
         include:
           - architecture: amd64
             msystem: MINGW64
-            # AMD64 保持你习惯的 MinGW 流程
-            extra_cmake_args: "-G \"MinGW Makefiles\""
+            # 建议改用 Ninja，避免 MinGW Make 的一些路径怪癖
+            extra_cmake_args: "-G Ninja"
             shell: msys2 {0}
           - architecture: aarch64
-            # ARM64 切换到 MSVC 流程
             msystem: MSVC
             extra_cmake_args: "-G \"Visual Studio 17 2022\" -A ARM64"
             shell: powershell
@@ -38,34 +36,37 @@ jobs:
         with:
           lfs: true
 
-      # 1. 针对 MinGW 的环境初始化
-      - name: Install Toolchain for MinGW
+      # --- AMD / MinGW 环境准备 ---
+      - name: Install Toolchain for MinGW (AMD64)
         if: matrix.msystem == 'MINGW64'
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
           update: true
-          install: mingw-w64-x86_64-toolchain
+          # 必须安装 mingw-w64-x86_64-cmake 才能在 msys2 {0} 里直接用 cmake
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
           cache: true
 
-      # 2. 针对 MSVC ARM64 的环境初始化 (关键步骤)
+      # --- ARM / MSVC 环境准备 ---
       - name: Setup MSVC for ARM64
         if: matrix.msystem == 'MSVC'
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: amd64_arm64 # 表示在 x64 宿主机上编译 ARM64 目标
+          arch: amd64_arm64
 
-      # 3. 配置 CMake
+      # --- 通用构建步骤 ---
       - name: Configure CMake
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{ matrix.extra_cmake_args }}
 
-      # 4. 执行构建
       - name: Build
         run: |
           cmake --build build --config ${{env.BUILD_TYPE}}
 
-      # 5. 上传产物 (注意 MSVC 默认生成的路径在 Release 子目录下)
+      # --- 产物上传 ---
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -75,5 +76,13 @@ jobs:
             build/Release/*.exe
           if-no-files-found: warn
 
-      - name: Clean cache on Windows
-        run: rm -rf build
+      # --- 清理步骤（修复 rm -rf 问题） ---
+      - name: Clean cache
+        if: always()
+        # 使用 powershell 和 bash 都能理解的通用写法，或者分情况
+        run: |
+          if ("${{ matrix.shell }}" -like "*powershell*") {
+            if (Test-Path build) { Remove-Item -Recurse -Force build }
+          } else {
+            rm -rf build
+          }
