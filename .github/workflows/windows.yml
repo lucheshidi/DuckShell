@@ -20,12 +20,12 @@ jobs:
         include:
           - architecture: amd64
             msystem: MINGW64
-            pkg_prefix: mingw-w64-x86_64
+            # AMD64 保持你习惯的 MinGW 流程
             extra_cmake_args: "-G \"MinGW Makefiles\""
             shell: msys2 {0}
           - architecture: aarch64
+            # ARM64 切换到 MSVC 流程
             msystem: MSVC
-            pkg_prefix: ""
             extra_cmake_args: "-G \"Visual Studio 17 2022\" -A ARM64"
             shell: powershell
 
@@ -34,48 +34,45 @@ jobs:
         shell: ${{ matrix.shell }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
-          clean: true
           lfs: true
 
-      - name: Install Toolchain on Windows
-        if: matrix.msystem != 'MSVC'
+      # 1. 针对 MinGW 的环境初始化
+      - name: Install Toolchain for MinGW
+        if: matrix.msystem == 'MINGW64'
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
           update: true
-          path-type: inherit
-          install: >-
-            ${{ matrix.pkg_prefix }}-toolchain
+          install: mingw-w64-x86_64-toolchain
           cache: true
-        timeout-minutes: 90
 
-      - name: Install x64 Make for ARM64 build
-        if: matrix.architecture == 'aarch64'
-        run: |
-          pacman -S --noconfirm mingw-w64-x86_64-make
+      # 2. 针对 MSVC ARM64 的环境初始化 (关键步骤)
+      - name: Setup MSVC for ARM64
+        if: matrix.msystem == 'MSVC'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64_arm64 # 表示在 x64 宿主机上编译 ARM64 目标
 
-      - name: Configure CMake on Windows
+      # 3. 配置 CMake
+      - name: Configure CMake
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{ matrix.extra_cmake_args }}
 
+      # 4. 执行构建
       - name: Build
         run: |
           cmake --build build --config ${{env.BUILD_TYPE}}
 
-      - name: List build directory contents on Windows
-        run: |
-          echo "Build directory contents:"
-          ls build/
-
+      # 5. 上传产物 (注意 MSVC 默认生成的路径在 Release 子目录下)
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
-          name: duckshell-windows-${{ matrix.architecture }}-${{ env.BUILD_TYPE }}
+          name: duckshell-windows-${{ matrix.architecture }}
           path: |
-            build/DuckShell.exe
-            build/Release/DuckShell.exe
+            build/*.exe
+            build/Release/*.exe
           if-no-files-found: warn
 
       - name: Clean cache on Windows
