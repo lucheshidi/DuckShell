@@ -19,11 +19,12 @@ jobs:
         include:
           - architecture: amd64
             msystem: MINGW64
-            # 建议改用 Ninja，避免 MinGW Make 的一些路径怪癖
+            # 使用 Ninja 生成器在 MinGW 环境下更稳定
             extra_cmake_args: "-G Ninja"
             shell: msys2 {0}
           - architecture: aarch64
             msystem: MSVC
+            # MSVC 必须指定架构为 ARM64
             extra_cmake_args: "-G \"Visual Studio 17 2022\" -A ARM64"
             shell: powershell
 
@@ -36,28 +37,28 @@ jobs:
         with:
           lfs: true
 
-      # --- AMD / MinGW 环境准备 ---
-      - name: Install Toolchain for MinGW (AMD64)
-        if: matrix.msystem == 'MINGW64'
+      # --- AMD64 (MinGW) 环境配置 ---
+      - name: Install Toolchain for MinGW
+        if: matrix.architecture == 'amd64'
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
           update: true
-          # 必须安装 mingw-w64-x86_64-cmake 才能在 msys2 {0} 里直接用 cmake
+          # 在 MSYS2 内部运行 cmake 必须安装 msys2 版本的 cmake
           install: >-
             mingw-w64-x86_64-toolchain
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
           cache: true
 
-      # --- ARM / MSVC 环境准备 ---
+      # --- ARM64 (MSVC) 环境配置 ---
       - name: Setup MSVC for ARM64
-        if: matrix.msystem == 'MSVC'
+        if: matrix.architecture == 'aarch64'
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: amd64_arm64
 
-      # --- 通用构建步骤 ---
+      # --- 通用构建流程 ---
       - name: Configure CMake
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} ${{ matrix.extra_cmake_args }}
@@ -76,13 +77,9 @@ jobs:
             build/Release/*.exe
           if-no-files-found: warn
 
-      # --- 清理步骤（修复 rm -rf 问题） ---
-      - name: Clean cache
+      # --- 兼容性清理步骤 (可选) ---
+      # 只有当你使用自托管服务器或有极大的磁盘压力时才需要此步
+      - name: Clean build directory
         if: always()
-        # 使用 powershell 和 bash 都能理解的通用写法，或者分情况
         run: |
-          if ("${{ matrix.shell }}" -like "*powershell*") {
-            if (Test-Path build) { Remove-Item -Recurse -Force build }
-          } else {
-            rm -rf build
-          }
+          ${{ matrix.architecture == 'aarch64' && 'if (Test-Path build) { Remove-Item -Recurse -Force build }' || 'rm -rf build' }}
