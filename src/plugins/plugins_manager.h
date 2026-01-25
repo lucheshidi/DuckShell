@@ -29,19 +29,15 @@ public:
     static void buildCommandMap();
     static void executeCommand(const std::string& command, const std::vector<std::string>& cmdArgs);
 
+    static std::string repository_url;
+
 private:
     static std::map<std::string, bool> installed_plugins;
-    static std::string repository_url;
     static std::vector<std::string> getDirectoryContents(const std::string& path);
 
-#ifdef _WIN32
-    static bool downloadWithWinInet(const std::string& url, const std::string& outputFile);
-#endif
-#ifndef _WIN32
     static bool downloadWithCurl(const std::string& url, const std::string& outputFile);
-#endif
+    static bool internalDownload(const std::string& url, const std::string& localPath);
     // ZIP 解压（最小改动方案）。需要 HAVE_MINIZIP 才会有实际实现。
-    static bool unzipFile(const std::string& zipPath, const std::string& outDir);
     static std::map<std::string, std::string> command_to_plugin_map; // command -> plugin_name 映射
 
 };

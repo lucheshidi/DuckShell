@@ -3,12 +3,15 @@
 #include <cctype>
 #include <deque>
 #include <vector>
-#include <sstream>  // 添加缺失的头文件
+#include <sstream>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <conio.h>
 #endif
+
+#include <cstdint>
+#include <regex>
 
 #include "../header.h"
 #include "../plugins/plugins_manager.h"
@@ -37,7 +40,6 @@ std::vector<std::string> split(const std::string& str, char delimiter) {
             tokens.push_back(token);
         }
     }
-
     return tokens;
 }
 
@@ -120,13 +122,11 @@ static std::string read_line_interactive(const std::string& prompt_shown) {
                 current_buffer.erase(cursor_pos - 1, 1);
                 cursor_pos--;
 
-                // 重绘行
-                std::cout << "\r" << prompt_shown << current_buffer;
-                // 将光标移动到正确位置
-                for (size_t i = cursor_pos; i < current_buffer.length(); ++i) {
-                    std::cout << " ";
-                }
-                for (size_t i = cursor_pos; i <= current_buffer.length(); ++i) {
+                // 重绘行：先清除整行，然后重新绘制
+                std::cout << "\r" << prompt_shown << current_buffer << " "; // 添加一个空格清除最后的字符
+                // 计算需要回退的距离
+                size_t back_steps = current_buffer.length() - cursor_pos + 1; // +1 是为了清除添加的空格
+                for (size_t i = 0; i < back_steps; ++i) {
                     std::cout << "\b";
                 }
                 std::cout.flush();
@@ -249,13 +249,11 @@ static std::string read_line_interactive(const std::string& prompt_shown) {
                 current_buffer.erase(cursor_pos - 1, 1);
                 cursor_pos--;
 
-                // 重绘行
-                std::cout << "\r" << prompt_shown << current_buffer;
-                // 将光标移动到正确位置
-                for (size_t i = cursor_pos; i < current_buffer.length(); ++i) {
-                    std::cout << " ";
-                }
-                for (size_t i = cursor_pos; i <= current_buffer.length(); ++i) {
+                // 重绘行：先清除整行，然后重新绘制
+                std::cout << "\r" << prompt_shown << current_buffer << " "; // 添加一个空格清除最后的字符
+                // 计算需要回退的距离
+                size_t back_steps = current_buffer.length() - cursor_pos + 1; // +1 是为了清除添加的空格
+                for (size_t i = 0; i < back_steps; ++i) {
                     std::cout << "\b";
                 }
                 std::cout.flush();
@@ -298,7 +296,7 @@ static std::string read_line_interactive(const std::string& prompt_shown) {
     return current_buffer;
 }
 
-void execute(const std::string& input) {
+int execute(const std::string& input) {
     // 添加命令到历史记录（除非是空命令或与上一条相同）
     if (!input.empty() && (command_history.empty() || command_history.back() != input)) {
         command_history.push_back(input);
@@ -308,12 +306,9 @@ void execute(const std::string& input) {
     }
     history_index = command_history.size();
 
-    const std::vector<std::string> cmd = split(input, ' ');
-    if (cmd.empty()) {
-        return;
-    }
+    if (const std::vector<std::string> cmd = split(input, ' '); cmd.empty()) return 1;
 
-    if (cmd[0] == "cls" || cmd[0] == "clear") {
+    else if (cmd[0] == "cls" || cmd[0] == "clear") {
 #ifdef _WIN32
         (void)system("cls");
 #else
@@ -321,10 +316,10 @@ void execute(const std::string& input) {
 #endif
     }
 
-    if (cmd[0] == "cd") {
+    else if (cmd[0] == "cd") {
         if (cmd.size() > 3) {
             println(RED << BOLD << "Too many arguments." << RESET);
-            return;
+            return 1;
         }
 
         if (cmd.size() == 1) {
@@ -336,7 +331,7 @@ void execute(const std::string& input) {
             char* env = getenv("HOME");
             dir_now = env ? std::string(env) : "/";
 #endif
-            return;
+            return 0;
         }
 
         std::string new_path;
@@ -425,13 +420,15 @@ void execute(const std::string& input) {
                 if (!token.empty()) {
                     if (token == ".") {
                         // skip
-                    } else if (token == "..") {
+                    }
+                    else if (token == "..") {
                         if (!segments.empty()) {
                             segments.pop_back();
                         } else {
                             // At root: keep as root, ignore further ".."
                         }
-                    } else {
+                    }
+                    else {
                         segments.emplace_back(token);
                     }
                     token.clear();
@@ -442,7 +439,8 @@ void execute(const std::string& input) {
                 char c = p[i];
                 if (c == '/' || c == '\\') {
                     flush_token();
-                } else {
+                }
+                else {
                     // Skip drive letters already captured
 #ifdef _WIN32
                     if (i < 2 && p.size() >= 2 && p[1] == ':') {
@@ -473,7 +471,7 @@ void execute(const std::string& input) {
             }
 
 #ifdef _WIN32
-            // Ensure root like "C:" becomes "C:\" to match previous behavior
+            // Ensure a root like "C:" becomes "C:\" to match previous behavior
             if (!drivePrefix.empty() && rooted && segments.empty()) {
                 if (result.size() == 2) result.push_back(sep);
             }
@@ -512,7 +510,7 @@ void execute(const std::string& input) {
             }
         }
 
-    if (cmd[0] == "ls" || cmd[0] == "dir" || cmd[0] == "ListFiles") {
+    else if (cmd[0] == "ls" || cmd[0] == "dir" || cmd[0] == "ListFiles") {
 #ifdef _WIN32
         try {
             std::string searchPath = dir_now + "\\*";
@@ -556,17 +554,17 @@ void execute(const std::string& input) {
     }
 
     // 在 execute 函数中添加插件管理命令处理
-    if (cmd[0] == "plugin") {
+    else if (cmd[0] == "plugin" || cmd[0] == "plugins") {
         if (cmd.size() < 2) {
             printf("Usage: plugin <command> [args...]\n");
             printf("Commands: install-all, list, run <plugin_name> [args...]\n");
-            return;
+            return 1;
         }
 
         if (cmd[1] == "run") {
             if (cmd.size() < 3) {
                 printf("Usage: plugin run <plugin_name> [args...]\n");
-                return;
+                return 1;
             }
 
             std::string pluginName = cmd[2];
@@ -579,29 +577,56 @@ void execute(const std::string& input) {
         else if (cmd[1] == "list") {
             PluginManager::listInstalledPlugins();
         }
-        else if (cmd[1] == "install" && cmd.size() >= 3) {
+        else if (cmd[1] == "install") {
+            if (cmd.size() < 3) {
+                println("Usage: plugin install <plugin_name>");
+                return 1;
+            }
             PluginManager::installPlugin(cmd[2]);
         }
-        else if (cmd[1] == "uninstall" && cmd.size() >= 3) {
+        else if (cmd[1] == "uninstall") {
+            if (cmd.size() < 3) {
+                println("Usage: plugin uninstall <plugin_name>");
+                return 1;
+            }
             PluginManager::uninstallPlugin(cmd[2]);
         }
         else if (cmd[1] == "available") {
+            if (cmd.size() > 2) {
+                println("Usage: plugin available");
+                return 1;
+            }
             PluginManager::listAvailablePlugins();
         }
-        else {
-            printf("Unknown plugin command: %s\n", cmd[1].c_str());
-            printf("Usage: plugin <command> [args...]\n");
-            printf("Commands: install-all, list, run, install, uninstall, available\n");
+        else if (cmd[1] == "download") {
+            if (cmd.size() < 3) {
+                println("Usage: plugin download <plugin_name>");
+                return 1;
+            }
+            PluginManager::downloadPlugin(cmd[2]);
         }
-        return;
+        else if (cmd[1] == "repo") {
+            if (cmd.size() < 3) {
+                println("Current Repository: " << PluginManager::repository_url.c_str());
+            }
+            else {
+                PluginManager::setRepositoryUrl(cmd[2]);
+            }
+        }
+        else {
+            println("Unknown plugin command: " << cmd[1].c_str());
+            println("Usage: plugin <command> [args...]\n");
+            println("Commands: install-all, list, run, install, uninstall, available, download\n");
+        }
+        return 1;
     }
 
     // 文件系统操作
     // 删除物品
-    if (cmd[0] == "rmv" || cmd[0] == "rm" || cmd[0] == "RemoveItem" || cmd[0] == "del") {
+    else if (cmd[0] == "rmv" || cmd[0] == "rm" || cmd[0] == "RemoveItem" || cmd[0] == "del") {
         if (cmd.size() < 2) {
             println("Usage: { rm | rmv | RemoveItem | del } [options] <filename>\n");
-            return;
+            return 1;
         }
 
         std::string filepath;
@@ -635,7 +660,7 @@ void execute(const std::string& input) {
     }
 
     // 新建物品
-    if (cmd[0] == "new" || cmd[0] == "crt" || cmd[0] == "mk") {
+    else if (cmd[0] == "new" || cmd[0] == "crt" || cmd[0] == "mk") {
         if (cmd.size() < 2) {
             println("Usage: { new | crt | mk } [options] <name>\n"
                   "Options:\n"
@@ -648,6 +673,58 @@ void execute(const std::string& input) {
             }
         }
     }
+
+    // 经典echo命令
+    else if (cmd[0] == "echo" || cmd[0] == "print") {
+        if (cmd.size() < 2) {
+            println("");
+        }
+        else {
+            println(std::regex_replace(cmd[1], std::regex("\"", "\'"), ""));
+        }
+    }
+
+    // set命令，用于设置变量
+    else if (cmd[0] == "set" || cmd[0] == "var") {
+        if (cmd.size() < 2) {
+            println(RED << BOLD << "Missing arguments. Usage: set key=value" << RESET);
+        }
+        else {
+            std::vector<std::string> var;
+            var = split(cmd[1], '=');
+        }
+    }
+
+    // 2. 【新增关键逻辑】检查是否是插件注册的自定义命令
+    else if (PluginManager::isPluginCommand(cmd[0])) {
+        // 提取参数 (去掉命令名本身)
+        std::vector<std::string> args(cmd.begin() + 1, cmd.end());
+        PluginManager::executeCommand(cmd[0], args);
+        return 0;
+    }
+
+    // 如果是系统命令，尝试执行
+    else {
+        // 构造完整的命令路径
+        const std::string& full_command = input;
+
+#ifdef _WIN32
+        // Windows系统命令执行
+        int result = system(full_command.c_str());
+        if (result != 0) {
+            println(YELLOW << "DuckShell: " << BOLD << "COMMAND NOT FOUND! Please specify another command." << RESET);
+            return 127;
+        }
+#else
+        // Unix/Linux系统命令执行
+        int result = system(full_command.c_str());
+        if (result != 0) {
+            println(YELLOW << "DuckShell: " << BOLD << "COMMAND NOT FOUND! Please specify another command." << RESET);
+            return 127;
+        }
+#endif
+    }
+    return 0;
 }
 
 /**
@@ -674,13 +751,14 @@ int startup(const std::string &param) {
             if (!command.empty()) {
                 // TODO: 处理命令执行逻辑
                 println(BOLD << YELLOW << "Executing: " << command << RESET);
-                execute(command);
+                if (const int exit_code = execute(command); exit_code != 0) {
+                    // TODO
+                }
             }
         }
     }
     else {
         execute(param);
-        startup();
     }
     return 0;
 }

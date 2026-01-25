@@ -9,7 +9,7 @@ private:
     std::string lastError;
 
 public:
-    HelloWorldPlugin() : enabled(false) {}
+    HelloWorldPlugin() : enabled(true) {}
 
     std::string getName() const override {
         return "HelloWorldPlugin";

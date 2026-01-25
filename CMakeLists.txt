@@ -1,58 +1,50 @@
-# CMakeLists.txt
 cmake_minimum_required(VERSION 3.15)
 project(DuckShell VERSION 0.1.0)
 
+# 生成版本头文件
 configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/src/version.h.in
         ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
 )
 
 set(CMAKE_CXX_STANDARD 17)
-
 include(FetchContent)
 
 # ================= Options =================
 option(ENABLE_REMOTE_REPO "Enable remote plugin repository features" ON)
 
-# Disable zlib shared libs and examples to speed up and simplify cross-compilation
-set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+# ================= Dependencies (libcurl Only) =================
 
-# ================= Dependencies =================
-
-# 1. ZLIB & Minizip (Always needed for plugin extraction)
 if(ENABLE_REMOTE_REPO)
-    FetchContent_Declare(
-            zlib
-            GIT_REPOSITORY https://github.com/madler/zlib.git
-            GIT_TAG        v1.3.1
-    )
-    # zlib's CMake is a bit old-school, sometimes needs help
-    FetchContent_MakeAvailable(zlib)
+    # 1. 强制统一配置 curl 编译选项 (无论是 Win 还是 WSL)
+    set(HTTP_ONLY ON CACHE BOOL "" FORCE)
+    set(BUILD_CURL_EXE OFF CACHE BOOL "" FORCE)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(BUILD_LIBCURL_DOCS OFF CACHE BOOL "" FORCE)
+    set(CURL_USE_LIBPSL OFF CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_LDAP ON CACHE BOOL "" FORCE)
+    set(CURL_DISABLE_LDAPS ON CACHE BOOL "" FORCE)
 
-    # Minizip (Download source and compile manually to avoid dependency hell)
-    FetchContent_Declare(
-            minizip_src
-            GIT_REPOSITORY https://github.com/sebastiandev/minizip.git
-            GIT_TAG        master
-    )
-    FetchContent_GetProperties(minizip_src)
-    if(NOT minizip_src_POPULATED)
-        FetchContent_MakeAvailable(minizip_src)
-        
-        set(MINIZIP_SOURCES
-            ${minizip_src_SOURCE_DIR}/unzip.c
-            ${minizip_src_SOURCE_DIR}/ioapi.c
-        )
-        if(WIN32)
-            list(APPEND MINIZIP_SOURCES ${minizip_src_SOURCE_DIR}/iowin32.c)
-        endif()
-        
-        add_library(minizip STATIC ${MINIZIP_SOURCES})
-        target_include_directories(minizip PUBLIC ${minizip_src_SOURCE_DIR})
-        target_link_libraries(minizip PRIVATE zlibstatic)
+    if(WIN32)
+        set(CMAKE_USE_SCHANNEL ON CACHE BOOL "" FORCE)
+        set(CMAKE_USE_OPENSSL OFF CACHE BOOL "" FORCE)
+    else()
+        # Linux 下确保开启 OpenSSL 支持
+        set(CMAKE_USE_OPENSSL ON CACHE BOOL "" FORCE)
     endif()
+
+    # 2. 直接使用 FetchContent，删掉下面的 find_package(CURL)
+    FetchContent_Declare(
+            curl
+            URL      https://github.com/curl/curl/releases/download/curl-8_5_0/curl-8.5.0.tar.gz
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    FetchContent_MakeAvailable(curl)
+
+    add_definitions(-DHAVE_LIBCURL)
 endif()
+
+# ================= Target =================
 
 add_executable(DuckShell
         src/main.cpp
@@ -63,7 +55,7 @@ add_executable(DuckShell
         src/plugins/plugins_interface.h
         src/global_vars.cpp
         src/global_vars.h
-        src/version.h.in
+        src/json.hpp
         ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
 )
 
@@ -75,28 +67,21 @@ if(MINGW)
     set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
     add_definitions(-D_WIN32_WINNT=0x0601)
 elseif(MSVC)
-    # Static runtime for MSVC to keep it lightweight
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
 if(WIN32)
-    target_link_libraries(DuckShell PRIVATE wininet ws2_32)
+    # libcurl 在 Windows 上需要的系统库
+    target_link_libraries(DuckShell PRIVATE libcurl ws2_32 crypt32 cryptui wldap32 normaliz)
     target_compile_definitions(DuckShell PRIVATE _WIN32)
 endif()
 
 if(ENABLE_REMOTE_REPO)
-    # Link ZLIB and Minizip
-    target_link_libraries(DuckShell PRIVATE minizip zlibstatic)
-    target_compile_definitions(DuckShell PRIVATE HAVE_MINIZIP)
+    # 关键：链接 FetchContent 出来的 'libcurl' 目标
+    target_link_libraries(DuckShell PRIVATE libcurl)
 
-    if(UNIX AND NOT APPLE)
-        find_package(CURL REQUIRED)
-        target_link_libraries(DuckShell PRIVATE CURL::libcurl)
-        target_compile_definitions(DuckShell PRIVATE HAVE_LIBCURL)
-    elseif(APPLE)
-        find_package(CURL REQUIRED)
-        target_link_libraries(DuckShell PRIVATE CURL::libcurl)
-        target_compile_definitions(DuckShell PRIVATE HAVE_LIBCURL)
+    if(UNIX)
+        # Linux 还需要这几个基础库
+        target_link_libraries(DuckShell PRIVATE dl pthread)
     endif()
-    # Windows uses WinInet, already linked above.
 endif()

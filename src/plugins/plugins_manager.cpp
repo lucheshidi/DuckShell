@@ -8,31 +8,34 @@
 #include <sys/stat.h>
 
 #include "plugins_interface.h"
+#include "../header.h"
+
+#include "../json.hpp" // 引入头文件
+using json = nlohmann::json;
 
 #ifdef _WIN32
-    #include <windows.h>
-    #include <wininet.h>
-    // 移除可能导致问题的头文件
-    // #include <filesystem>  // 注释掉这行
-    #include <vector>
+#include <windows.h>
+// 移除可能导致问题的头文件
+// #include <filesystem>  // 注释掉这行
+#include <vector>
 #else
-    #include <dirent.h>
-    #include <vector>
-    #if defined(HAVE_LIBCURL)
-        #include <curl/curl.h>
-    #endif
+#include <dirent.h>
+#include <dlfcn.h>      // Unix 动态库加载
+#include <vector>
 #endif
 
-#if defined(HAVE_MINIZIP)
-    #include <zlib.h>
-    #include <unzip.h>
-    #include <cstring>
-#endif
+#include <cstring>
 
 
 // 定义静态成员变量
 std::map<std::string, bool> PluginManager::installed_plugins;
-std::string PluginManager::repository_url = "";
+std::string PluginManager::repository_url = "https://duckshell.dpdns.org";
+
+namespace {
+    size_t write_data(void* ptr, size_t size, size_t nmemb, FILE* stream) {
+        return fwrite(ptr, size, nmemb, stream);
+    }
+}
 
 #ifdef _WIN32
 std::vector<std::string> PluginManager::getDirectoryContents(const std::string& path) {
@@ -85,7 +88,7 @@ void PluginManager::loadPlugins() {
     std::ifstream infile(pluginsListFile);
 
     if (!infile.is_open()) {
-        printf("Failed to open plugins list file.\n");
+        println("Failed to open plugins list file.\n");
         return;
     }
 
@@ -119,10 +122,10 @@ void PluginManager::installPlugin(const std::string& pluginName) {
             outfile.close();
         }
 
-        printf("Plugin '%s' installed successfully.\n", pluginName.c_str());
+        println("Plugin '" << pluginName.c_str() << "' installed successfully.\n");
     }
     else {
-        printf("Plugin '%s' not found in repository.\n", pluginName.c_str());
+        println("Plugin '" << pluginName.c_str() << "' not found in repository.\n");
     }
 }
 
@@ -152,10 +155,10 @@ void PluginManager::uninstallPlugin(const std::string& pluginName) {
             rename(tempFile.c_str(), pluginsListFile.c_str());
         }
 
-        printf("Plugin '%s' uninstalled successfully.\n", pluginName.c_str());
+        println("Plugin '" << pluginName.c_str() <<"' uninstalled successfully.\n");
     }
     else {
-        printf("Plugin '%s' is not installed.\n", pluginName.c_str());
+        println("Plugin '" << pluginName.c_str() << "' is not installed.\n");
     }
 }
 
@@ -164,11 +167,11 @@ void PluginManager::listAvailablePlugins() {
     std::vector<std::string> contents = getDirectoryContents(pluginsDir);
 
     if (contents.empty()) {
-        printf("No available plugins found.\n");
+        println("No available plugins found.\n");
         return;
     }
 
-    printf("Available plugins:\n");
+    println("Available plugins:\n");
     for (const auto& item : contents) {
         std::cout << "  " << item << std::endl;
     }
@@ -176,11 +179,11 @@ void PluginManager::listAvailablePlugins() {
 
 void PluginManager::listInstalledPlugins() {
     if (installed_plugins.empty()) {
-        printf("No plugins installed.\n");
+        println("No plugins installed.\n");
         return;
     }
 
-    printf("Installed plugins:\n");
+    println("Installed plugins:\n");
     for (const auto& pair : installed_plugins) {
         std::cout << "  " << pair.first << ": " << (pair.second ? "enabled" : "disabled") << std::endl;
     }
@@ -189,111 +192,108 @@ void PluginManager::listInstalledPlugins() {
 // 新增功能：设置仓库URL
 void PluginManager::setRepositoryUrl(const std::string& url) {
     repository_url = url;
-    printf("Repository URL set to: %s\n", url.c_str());
+    println("Repository URL set to: " << url.c_str());
 }
 
 // 新增功能：列出远程插件
 void PluginManager::listRemotePlugins() {
-    if (repository_url.empty()) {
-        printf("No repository URL configured. Use 'plugin repo set <url>' first.\n");
-        return;
-    }
+    if (repository_url.empty()) return;
 
-    std::string apiUrl = repository_url + "/api/v1/plugins.json";
+    // 访问我们设计的 PyPI 风格索引页
+    std::string indexUrl = repository_url + "/simple/index.html";
+    std::string tempHtml = home_dir + "/duckshell/temp_index.html";
 
-#ifdef _WIN32
-    std::string jsonData;
-    if (downloadWithWinInet(apiUrl, "temp_plugins.json")) {
-        // 读取临时文件内容
-        std::ifstream tempFile("temp_plugins.json");
-        if (tempFile.is_open()) {
-            std::string line;
-            while (std::getline(tempFile, line)) {
-                jsonData += line + "\n";
+    if (internalDownload(indexUrl, tempHtml)) {
+        std::ifstream file(tempHtml);
+        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+        remove(tempHtml.c_str());
+
+        println("--- Remote Plugin Repository ---");
+
+        // 使用正则或简单的字符串查找抓取 <a> 标签
+        // 格式预期：<a href="/packages/test-plugin/">test-plugin</a>
+        size_t pos = 0;
+        bool found = false;
+        while ((pos = content.find("<a href=", pos)) != std::string::npos) {
+            size_t start = content.find(">", pos) + 1;
+            size_t end = content.find("</a>", start);
+            if (start != std::string::npos && end != std::string::npos) {
+                std::string name = content.substr(start, end - start);
+                println("  * " << name.c_str());
+                found = true;
             }
-            tempFile.close();
-            remove("temp_plugins.json");
+            pos = end;
         }
-        printf("Available remote plugins:\n");
-        std::cout << jsonData << std::endl;
+        if(!found) println(" (No plugins found in index)");
+    } else {
+        println("Failed to connect to repository index.");
     }
-    else {
-        printf("Failed to fetch plugin list from repository.\n");
-    }
-#else
-    #if defined(HAVE_LIBCURL)
-        std::string jsonData;
-        if (downloadWithCurl(apiUrl, "temp_plugins.json")) {
-            std::ifstream tempFile("temp_plugins.json");
-            if (tempFile.is_open()) {
-                std::string line;
-                while (std::getline(tempFile, line)) {
-                    jsonData += line + "\n";
-                }
-                tempFile.close();
-                remove("temp_plugins.json");
-            }
-            printf("Available remote plugins:\n");
-            std::cout << jsonData << std::endl;
-        } else {
-            printf("Failed to fetch plugin list from repository.\n");
-        }
-    #else
-        printf("Remote repository feature is not available in this build (libcurl not enabled).\n");
-    #endif
-#endif
 }
 
 // 新增功能：下载插件
 void PluginManager::downloadPlugin(const std::string& pluginName) {
-    if (repository_url.empty()) {
-        printf("No repository URL configured. Use 'plugin repo set <url>' first.\n");
+    if (repository_url.empty()) return;
+
+    // 1. 准备元数据路径
+    std::string baseUrl = repository_url + "/packages/" + pluginName;
+    std::string metaUrl = baseUrl + "/plugin.json";
+    std::string tempJson = home_dir + "/duckshell/temp_meta.json";
+
+    println("Fetching metadata: " << metaUrl.c_str());
+
+    // 2. 下载并解析 JSON
+    if (!internalDownload(metaUrl, tempJson)) {
+        println(RED << "Error: Could not reach repository or plugin not found." << RESET);
         return;
     }
 
-    // 构建下载URL
-    std::string downloadUrl = repository_url + "/downloads/" + pluginName + ".zip";
-    std::string localPath = home_dir + "/duckshell/plugins/" + pluginName + ".zip";
+    try {
+        std::ifstream f(tempJson);
+        json j = json::parse(f);
+        f.close();
+        // remove(tempJson.c_str()); // 调试阶段可以先不删
 
+        // 3. 确定平台后缀
 #ifdef _WIN32
-    if (downloadWithWinInet(downloadUrl, localPath)) {
-        printf("Plugin '%s' downloaded successfully.\n", pluginName.c_str());
-    }
-    else {
-        printf("Failed to download plugin '%s'\n", pluginName.c_str());
-        remove(localPath.c_str()); // 删除失败的下载文件
-        return;
-    }
+        std::string currentPlatform = "windows";
+        std::string ext = ".dll";
 #else
-    #if defined(HAVE_LIBCURL)
-        if (downloadWithCurl(downloadUrl, localPath)) {
-            printf("Plugin '%s' downloaded successfully.\n", pluginName.c_str());
-        } else {
-            printf("Failed to download plugin '%s'\n", pluginName.c_str());
-            remove(localPath.c_str());
+        std::string currentPlatform = "linux";
+        std::string ext = ".so";
+#endif
+
+        if (!j["platforms"].contains(currentPlatform) || j["platforms"][currentPlatform] == false) {
+            println(RED << "Error: Plugin does not support " << currentPlatform << RESET);
             return;
         }
-    #else
-        printf("Remote repository download is not available in this build (libcurl not enabled).\n");
-        return;
-    #endif
-#endif
 
-    // 下载成功后尝试自动解压（需要 minizip）。
-    const std::string pluginsDir = home_dir + "/duckshell/plugins";
-#if defined(HAVE_MINIZIP)
-    if (unzipFile(localPath, pluginsDir)) {
-        // 解压成功后，删除 zip 包并刷新已安装列表
-        remove(localPath.c_str());
-        installAllPlugins();
-    } else {
-        printf("Downloaded but failed to extract '%s'. You can extract manually: %s\n",
-               pluginName.c_str(), localPath.c_str());
+        // 4. 版本号与路径处理 (包含 'v' 前缀容错)
+        std::string version = j["latest_version"];
+        std::string versionPath = version;
+        if (!versionPath.empty() && versionPath[0] != 'v' && versionPath[0] != 'V') {
+            versionPath = "v" + version;
+        }
+
+        // 5. 执行二进制下载
+        // 结构: .../packages/PluginName/v1.0/PluginName.dll
+        std::string binaryUrl = baseUrl + "/" + versionPath + "/" + pluginName + ext;
+        std::string localPath = home_dir + "/duckshell/plugins/" + pluginName + ext;
+
+        println("Found version " << version << ". Downloading binary...");
+
+        if (internalDownload(binaryUrl, localPath)) {
+            println(GREEN << "Successfully installed: " << pluginName << RESET);
+            installAllPlugins(); // 刷新内存中的插件映射
+        }
+        else {
+            println(RED << "Error: Failed to download binary file." << RESET);
+        }
+
     }
-#else
-    printf("Zip extraction is not enabled in this build (minizip not found). The archive remains at: %s\n",
-           localPath.c_str());
-#endif
+    catch (const std::exception& e) {
+        println(RED << "JSON/Logic Error: " << e.what() << RESET);
+    }
 }
 
 void PluginManager::installAllPlugins() {
@@ -301,11 +301,11 @@ void PluginManager::installAllPlugins() {
     std::vector<std::string> contents = getDirectoryContents(pluginsDir);
 
     if (contents.empty()) {
-        printf("No plugins found to install.\n");
+        println("No plugins found to install.");
         return;
     }
 
-    printf("Scanning for plugins to install...\n");
+    println("Scanning for plugins to install...");
 
     // 记录初始插件数量
     size_t initialPluginCount = installed_plugins.size();
@@ -320,10 +320,10 @@ void PluginManager::installAllPlugins() {
             if (it == installed_plugins.end()) {
                 // 只有未安装的插件才添加
                 installed_plugins[item] = true;
-                printf("Plugin '%s' added for installation.\n", item.c_str());
+                println("Plugin '" << item.c_str() << "' added for installation.");
                 hasNewPlugins = true;
             } else {
-                printf("Plugin '%s' already installed.\n", item.c_str());
+                println("Plugin '"  << item.c_str() << "' already installed.");
             }
             }
     }
@@ -338,10 +338,10 @@ void PluginManager::installAllPlugins() {
                 outfile << pair.first << ":" << (pair.second ? "enabled" : "disabled") << "\n";
             }
             outfile.close();
-            printf("Plugins list updated successfully.\n");
+            println("Plugins list updated successfully.");
         }
     } else {
-        printf("No new plugins to install.\n");
+        println("No new plugins to install.");
     }
 }
 
@@ -374,6 +374,28 @@ void PluginManager::buildCommandMap() {
                 }
                 FreeLibrary(handle);
             }
+#else
+            // Unix/Linux 系统使用 dlopen/dlsym
+            void* handle = dlopen(pluginPath.c_str(), RTLD_LAZY);
+            if (handle) {
+                CreatePluginFunc createFunc = (CreatePluginFunc)dlsym(handle, "createPlugin");
+                if (createFunc && dlerror() == NULL) {  // 检查错误
+                    IPlugin* plugin = createFunc();
+                    if (plugin) {
+                        // 获取插件支持的命令别名
+                        auto aliases = plugin->getCommandAliases();
+                        for (const auto& alias : aliases) {
+                            command_to_plugin_map[alias] = pair.first;
+                        }
+
+                        DestroyPluginFunc destroyFunc = (DestroyPluginFunc)dlsym(handle, "destroyPlugin");
+                        if (destroyFunc && dlerror() == NULL) {
+                            destroyFunc(plugin);
+                        }
+                    }
+                }
+                dlclose(handle);
+            }
 #endif
         }
     }
@@ -383,7 +405,7 @@ void PluginManager::executeCommand(const std::string& command, const std::vector
     // 查找命令对应的插件
     auto it = command_to_plugin_map.find(command);
     if (it == command_to_plugin_map.end()) {
-        printf("Unknown command: %s\n", command.c_str());
+        println("Unknown command: " << command.c_str());
         return;
     }
 
@@ -398,12 +420,12 @@ void PluginManager::executePluginWithCommand(const std::string& pluginName, cons
 
     auto it = installed_plugins.find(resolvedName);
     if (it == installed_plugins.end()) {
-        printf("Plugin '%s' is not installed.\n", resolvedName.c_str());
+        println("Plugin '" << resolvedName.c_str() << "' is not installed.\n");
         return;
     }
 
     if (!it->second) {
-        printf("Plugin '%s' is disabled.\n", resolvedName.c_str());
+        println("Plugin '" << resolvedName.c_str() << "' is disabled.\n");
         return;
     }
 
@@ -412,13 +434,13 @@ void PluginManager::executePluginWithCommand(const std::string& pluginName, cons
 #ifdef _WIN32
     HMODULE handle = LoadLibraryA(pluginPath.c_str());
     if (!handle) {
-        printf("Failed to load plugin '%s'. Error: %lu\n", resolvedName.c_str(), GetLastError());
+        println("Failed to load plugin '" << resolvedName.c_str() << "'. Error: " << GetLastError());
         return;
     }
 
     CreatePluginFunc createFunc = (CreatePluginFunc)GetProcAddress(handle, "createPlugin");
     if (!createFunc) {
-        printf("Plugin '%s' does not export createPlugin function.\n", resolvedName.c_str());
+        println("Plugin '" << resolvedName.c_str() << "' does not export createPlugin function.\n");
         FreeLibrary(handle);
         return;
     }
@@ -443,6 +465,48 @@ void PluginManager::executePluginWithCommand(const std::string& pluginName, cons
             destroyFunc(plugin);
         }
         FreeLibrary(handle);
+    }
+#else
+    // Unix/Linux 系统使用 dlopen/dlsym
+    void* handle = dlopen(pluginPath.c_str(), RTLD_LAZY);
+    if (!handle) {
+        println("Failed to load plugin '" << resolvedName.c_str() << "'. Error: " << dlerror());
+        return;
+    }
+
+    // 清除之前的错误
+    dlerror();
+    CreatePluginFunc createFunc = (CreatePluginFunc)dlsym(handle, "createPlugin");
+    const char* dlsym_error = dlerror();
+    if (dlsym_error) {
+        println("Plugin '" << resolvedName.c_str() << "' does not export createPlugin function. Error: " << dlsym_error);
+        dlclose(handle);
+        return;
+    }
+
+    IPlugin* plugin = createFunc();
+    if (plugin) {
+        // 将命令参数传递给插件
+        std::map<std::string, std::string> params;
+        for (size_t i = 0; i < cmdArgs.size(); ++i) {
+            params["arg" + std::to_string(i)] = cmdArgs[i];
+        }
+        params["argc"] = std::to_string(cmdArgs.size());
+
+        // 触发一个事件让插件处理命令参数
+        plugin->onEvent("command_execute", params);
+
+        // 同时执行标准的 execute 方法
+        plugin->execute();
+
+        // 清除之前的错误
+        dlerror();
+        DestroyPluginFunc destroyFunc = (DestroyPluginFunc)dlsym(handle, "destroyPlugin");
+        dlsym_error = dlerror();
+        if (!dlsym_error && destroyFunc) {
+            destroyFunc(plugin);
+        }
+        dlclose(handle);
     }
 #endif
 }
@@ -489,76 +553,8 @@ std::string PluginManager::resolvePluginName(const std::string& pluginName) {
     return pluginName;
 }
 
-#ifdef _WIN32
-// Windows平台使用WinINet下载文件
-bool PluginManager::downloadWithWinInet(const std::string& url, const std::string& outputFile) {
-    HINTERNET hInternet = InternetOpenA("DuckShell/1.0", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
-    if (!hInternet) return false;
 
-    URL_COMPONENTSA urlComp = {0};
-    urlComp.dwStructSize = sizeof(urlComp);
-    urlComp.dwHostNameLength = 1;
-    urlComp.dwUrlPathLength = 1;
-
-    if (!InternetCrackUrlA(url.c_str(), 0, 0, &urlComp)) {
-        InternetCloseHandle(hInternet);
-        return false;
-    }
-
-    HINTERNET hConnect = InternetConnectA(hInternet, urlComp.lpszHostName,
-                                         urlComp.nPort, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-    if (!hConnect) {
-        InternetCloseHandle(hInternet);
-        return false;
-    }
-
-    HINTERNET hRequest = HttpOpenRequestA(hConnect, "GET", urlComp.lpszUrlPath,
-                                         NULL, NULL, NULL, 0, 0);
-    if (!hRequest) {
-        InternetCloseHandle(hConnect);
-        InternetCloseHandle(hInternet);
-        return false;
-    }
-
-    if (!HttpSendRequestA(hRequest, NULL, 0, NULL, 0)) {
-        InternetCloseHandle(hRequest);
-        InternetCloseHandle(hConnect);
-        InternetCloseHandle(hInternet);
-        return false;
-    }
-
-    FILE* fp = fopen(outputFile.c_str(), "wb");
-    if (!fp) {
-        InternetCloseHandle(hRequest);
-        InternetCloseHandle(hConnect);
-        InternetCloseHandle(hInternet);
-        return false;
-    }
-
-    char buffer[4096];
-    DWORD bytesRead;
-    while (InternetReadFile(hRequest, buffer, sizeof(buffer), &bytesRead) && bytesRead > 0) {
-        fwrite(buffer, 1, bytesRead, fp);
-    }
-
-    fclose(fp);
-    InternetCloseHandle(hRequest);
-    InternetCloseHandle(hConnect);
-    InternetCloseHandle(hInternet);
-
-    return true;
-}
-#endif
-
-#if !defined(_WIN32) && defined(HAVE_LIBCURL)
-// Linux/Unix 平台使用 libcurl 下载文件
-namespace {
-    size_t write_data(void* ptr, size_t size, size_t nmemb, void* stream) {
-        FILE* fp = static_cast<FILE*>(stream);
-        return fwrite(ptr, size, nmemb, fp);
-    }
-}
-
+#if defined(HAVE_LIBCURL)
 bool PluginManager::downloadWithCurl(const std::string& url, const std::string& outputFile) {
     CURL* curl = curl_easy_init();
     if (!curl) return false;
@@ -569,115 +565,87 @@ bool PluginManager::downloadWithCurl(const std::string& url, const std::string& 
         return false;
     }
 
+    // 设置 URL
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+
+    // 关键：允许重定向 (Cloudflare 隧道经常返回 301/302)
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+
+    // 设置回调函数
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+
+    // 设置 User-Agent (模仿浏览器，避免被拦截)
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "DuckShell/1.0 (Linux; RaspberryPi)");
+
+    // 超时设置
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
+
+    // 执行下载
+    CURLcode res = curl_easy_perform(curl);
+
+    // 检查 HTTP 状态码
+    long response_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+
+    fclose(fp);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK || response_code != 200) {
+        println("Curl failed: " << curl_easy_strerror(res) << " (HTTP " << response_code << ")");
+        remove(outputFile.c_str()); // 下载失败则删除空文件
+        return false;
+    }
+
+    return true;
+}
+#endif
+
+bool PluginManager::internalDownload(const std::string& url, const std::string& localPath) {
+    CURL* curl = curl_easy_init();
+    if (!curl) return false;
+
+    FILE* fp = fopen(localPath.c_str(), "wb");
+    if (!fp) {
+        println(RED << "File Error: Cannot create " << localPath << RESET);
+        curl_easy_cleanup(curl);
+        return false;
+    }
+
+    // 基本设置
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "DuckShell/1.0");
-    // 合理的超时设置
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
 
+    // HTTPS 关键设置 (针对不同平台自动适配)
+#ifdef _WIN32
+    curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+#endif
+
+    // 执行请求
     CURLcode res = curl_easy_perform(curl);
+
+    // 获取 HTTP 状态码
+    long response_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+
     fclose(fp);
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK) {
-        remove(outputFile.c_str());
+        println(RED << "Curl Error: " << curl_easy_strerror(res) << RESET);
+        std::remove(localPath.c_str()); // 失败了就清理掉空文件
         return false;
     }
+
+    if (response_code != 200) {
+        println(YELLOW << "HTTP Error: " << response_code << " (URL: " << url << ")" << RESET);
+        std::remove(localPath.c_str());
+        return false;
+    }
+
     return true;
-}
-#endif
-
-// ZIP 解压实现（基于 minizip 经典 API）。
-// 仅当定义了 HAVE_MINIZIP 时可用；否则返回 false。
-bool PluginManager::unzipFile(const std::string& zipPath, const std::string& outDir) {
-#if defined(HAVE_MINIZIP)
-    auto ensure_dir = [](const std::string& path) {
-#ifdef _WIN32
-        // 递归创建目录（简单实现）
-        std::string curr;
-        for (size_t i = 0; i < path.size(); ++i) {
-            char c = path[i];
-            curr.push_back(c);
-            if (c == '\\' || c == '/') {
-                if (curr.size() > 1) CreateDirectoryA(curr.c_str(), nullptr);
-            }
-        }
-        if (!curr.empty()) CreateDirectoryA(curr.c_str(), nullptr);
-#else
-        // POSIX 递归创建目录
-        std::string curr;
-        for (size_t i = 0; i < path.size(); ++i) {
-            char c = path[i];
-            curr.push_back(c);
-            if (c == '/') {
-                if (curr.size() > 1) mkdir(curr.c_str(), 0755);
-            }
-        }
-        if (!curr.empty()) mkdir(curr.c_str(), 0755);
-#endif
-    };
-
-    unzFile uf = unzOpen(zipPath.c_str());
-    if (!uf) {
-        printf("Failed to open zip: %s\n", zipPath.c_str());
-        return false;
-    }
-
-    if (unzGoToFirstFile(uf) != UNZ_OK) {
-        unzClose(uf);
-        printf("Empty or invalid zip: %s\n", zipPath.c_str());
-        return false;
-    }
-
-    do {
-        char filename_inzip[512] = {0};
-        unz_file_info file_info{};
-        if (unzGetCurrentFileInfo(uf, &file_info, filename_inzip, sizeof(filename_inzip), nullptr, 0, nullptr, 0) != UNZ_OK) {
-            unzClose(uf);
-            printf("Failed to read file info in zip: %s\n", zipPath.c_str());
-            return false;
-        }
-
-        std::string fullPath = outDir + "/" + filename_inzip;
-        // 目录条目
-        if (filename_inzip[strlen(filename_inzip)-1] == '/' || filename_inzip[strlen(filename_inzip)-1] == '\\') {
-            ensure_dir(fullPath);
-        } else {
-            // 创建父目录
-            size_t pos = fullPath.find_last_of("/\\");
-            if (pos != std::string::npos) ensure_dir(fullPath.substr(0, pos));
-
-            if (unzOpenCurrentFile(uf) != UNZ_OK) {
-                unzClose(uf);
-                printf("Failed to open entry in zip: %s\n", filename_inzip);
-                return false;
-            }
-
-            FILE* fp = fopen(fullPath.c_str(), "wb");
-            if (!fp) {
-                unzCloseCurrentFile(uf);
-                unzClose(uf);
-                printf("Failed to create file: %s\n", fullPath.c_str());
-                return false;
-            }
-
-            char buf[8192];
-            int readBytes = 0;
-            while ((readBytes = unzReadCurrentFile(uf, buf, sizeof(buf))) > 0) {
-                fwrite(buf, 1, static_cast<size_t>(readBytes), fp);
-            }
-            fclose(fp);
-            unzCloseCurrentFile(uf);
-        }
-    } while (unzGoToNextFile(uf) == UNZ_OK);
-
-    unzClose(uf);
-    return true;
-#else
-    (void)zipPath; (void)outDir;
-    return false;
-#endif
 }

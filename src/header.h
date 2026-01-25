@@ -8,6 +8,12 @@
 #include <fstream>
 #include <sys/stat.h>
 #include <iterator>
+#include <list>
+#include <unordered_map>
+
+#if defined(HAVE_LIBCURL)
+#include <curl/curl.h>
+#endif
 
 // ANSI Color codes
 const std::string RESET = "\033[0m";
@@ -46,6 +52,7 @@ const std::string BLINK = "\033[5m";
 // 声明全局变量（不定义）
 extern std::string home_dir;
 extern std::string dir_now;
+extern std::unordered_map<std::string, std::string> shell_global_vars;
 
 // 函数声明
 int startup(const std::string &param = "");
