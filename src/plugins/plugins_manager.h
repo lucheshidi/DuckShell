@@ -12,6 +12,9 @@ public:
     static void loadPlugins();
     static void installPlugin(const std::string& pluginName);
     static void uninstallPlugin(const std::string& pluginName);
+    static void removePlugin(const std::string& pluginName);
+    static void enablePlugin(const std::string& pluginName);
+    static void disablePlugin(const std::string& pluginName);
     static void listAvailablePlugins();
     static void listInstalledPlugins();
 
@@ -36,6 +39,7 @@ private:
     static std::vector<std::string> getDirectoryContents(const std::string& path);
 
     static bool internalDownload(const std::string& url, const std::string& localPath);
+    static void updatePluginsListFile();
     // ZIP 解压（最小改动方案）。需要 HAVE_MINIZIP 才会有实际实现。
     static std::map<std::string, std::string> command_to_plugin_map; // command -> plugin_name 映射
 

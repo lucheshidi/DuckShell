@@ -26,6 +26,19 @@ using json = nlohmann::json;
 
 #include <cstring>
 
+// 辅助函数：更新插件列表文件
+void PluginManager::updatePluginsListFile() {
+    std::string pluginsListFile = home_dir + "/duckshell/plugins.ls";
+    std::ofstream outfile(pluginsListFile);
+    
+    if (outfile.is_open()) {
+        for (const auto& pair : installed_plugins) {
+            outfile << pair.first << ":" << (pair.second ? "enabled" : "disabled") << "\n";
+        }
+        outfile.close();
+    }
+}
+
 
 // 定义静态成员变量
 std::map<std::string, bool> PluginManager::installed_plugins;
@@ -130,7 +143,10 @@ void PluginManager::installPlugin(const std::string& pluginName) {
 }
 
 void PluginManager::uninstallPlugin(const std::string& pluginName) {
-    auto it = installed_plugins.find(pluginName);
+    // 解析插件名称，支持不带扩展名的输入
+    std::string resolvedName = resolvePluginName(pluginName);
+    
+    auto it = installed_plugins.find(resolvedName);
     if (it != installed_plugins.end()) {
         installed_plugins.erase(it);
 
@@ -144,21 +160,96 @@ void PluginManager::uninstallPlugin(const std::string& pluginName) {
         if (infile.is_open() && outfile.is_open()) {
             std::string line;
             while (std::getline(infile, line)) {
-                if (line.find(pluginName + ":") != 0) {
+                // 修复删除逻辑：检查行是否以插件名开头且后面紧跟冒号
+                if (line.substr(0, resolvedName.length()) != resolvedName ||
+                    (line.length() > resolvedName.length() && line[resolvedName.length()] != ':')) {
                     outfile << line << "\n";
                 }
             }
             infile.close();
             outfile.close();
 
-            remove(pluginsListFile.c_str());
-            rename(tempFile.c_str(), pluginsListFile.c_str());
+            // 原子性替换文件
+            if (remove(pluginsListFile.c_str()) != 0) {
+                println("Warning: Failed to remove old plugins list file.\n");
+            }
+            if (rename(tempFile.c_str(), pluginsListFile.c_str()) != 0) {
+                println("Error: Failed to rename temporary file.\n");
+            }
+        } else {
+            println("Error: Failed to open plugins list files for update.\n");
         }
 
-        println("Plugin '" << pluginName.c_str() <<"' uninstalled successfully.\n");
+        println("Plugin '" << resolvedName.c_str() << "' uninstalled successfully.\n");
+    } else {
+        println("Plugin '" << resolvedName.c_str() << "' is not installed.\n");
     }
-    else {
-        println("Plugin '" << pluginName.c_str() << "' is not installed.\n");
+}
+
+void PluginManager::removePlugin(const std::string& pluginName) {
+    // 解析插件名称，支持不带扩展名的输入
+    std::string resolvedName = resolvePluginName(pluginName);
+    
+    // 首先卸载插件（从内存和列表文件中移除）
+    uninstallPlugin(resolvedName);
+    
+    // 然后删除插件文件
+    std::string pluginPath = home_dir + "/duckshell/plugins/" + resolvedName;
+    
+#ifdef _WIN32
+    if (DeleteFileA(pluginPath.c_str()) != 0) {
+        println("Plugin file '" << resolvedName.c_str() << "' removed successfully.\n");
+    } else {
+        println("Failed to remove plugin file '" << resolvedName.c_str() << "'.\n");
+    }
+#else
+    if (unlink(pluginPath.c_str()) == 0) {
+        println("Plugin file '" << resolvedName.c_str() << "' removed successfully.\n");
+    } else {
+        println("Failed to remove plugin file '" << resolvedName.c_str() << "'.\n");
+    }
+#endif
+}
+
+void PluginManager::enablePlugin(const std::string& pluginName) {
+    // 解析插件名称，支持不带扩展名的输入
+    std::string resolvedName = resolvePluginName(pluginName);
+    
+    auto it = installed_plugins.find(resolvedName);
+    if (it != installed_plugins.end()) {
+        if (it->second) {
+            println("Plugin '" << resolvedName.c_str() << "' is already enabled.\n");
+        } else {
+            installed_plugins[resolvedName] = true;
+            
+            // 更新插件列表文件
+            updatePluginsListFile();
+            
+            println("Plugin '" << resolvedName.c_str() << "' enabled successfully.\n");
+        }
+    } else {
+        println("Plugin '" << resolvedName.c_str() << "' is not installed.\n");
+    }
+}
+
+void PluginManager::disablePlugin(const std::string& pluginName) {
+    // 解析插件名称，支持不带扩展名的输入
+    std::string resolvedName = resolvePluginName(pluginName);
+    
+    auto it = installed_plugins.find(resolvedName);
+    if (it != installed_plugins.end()) {
+        if (!it->second) {
+            println("Plugin '" << resolvedName.c_str() << "' is already disabled.\n");
+        } else {
+            installed_plugins[resolvedName] = false;
+            
+            // 更新插件列表文件
+            updatePluginsListFile();
+            
+            println("Plugin '" << resolvedName.c_str() << "' disabled successfully.\n");
+        }
+    } else {
+        println("Plugin '" << resolvedName.c_str() << "' is not installed.\n");
     }
 }
 
@@ -554,8 +645,14 @@ std::string PluginManager::resolvePluginName(const std::string& pluginName) {
 }
 
 bool PluginManager::internalDownload(const std::string& url, const std::string& localPath) {
+    println("Attempting to download: " << url);
+    println("Saving to: " << localPath);
+    
     CURL* curl = curl_easy_init();
-    if (!curl) return false;
+    if (!curl) {
+        println(RED << "Error: Failed to initialize CURL" << RESET);
+        return false;
+    }
 
     FILE* fp = fopen(localPath.c_str(), "wb");
     if (!fp) {
@@ -570,13 +667,32 @@ bool PluginManager::internalDownload(const std::string& url, const std::string& 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "DuckShell/1.0");
+    
+    // 增加超时设置
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);  // 30秒超时
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);  // 10秒连接超时
+    
+    // 减少调试信息显示
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 0L);
+    
+    // 只在出现错误时显示详细信息
+    curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, [](CURL *handle, curl_infotype type, char *data, size_t size, void *userptr) -> int {
+        if (type == CURLINFO_TEXT && (strstr(data, "schannel:") == nullptr || strstr(data, "failed to decrypt") == nullptr)) {
+            printf("* %.*s", (int)size, data);
+        }
+        return 0;
+    });
 
     // HTTPS 关键设置 (针对不同平台自动适配)
 #ifdef _WIN32
     curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+#else
+    // Linux下可能需要指定CA证书路径
+    curl_easy_setopt(curl, CURLOPT_CAINFO, "/etc/ssl/certs/ca-certificates.crt");
 #endif
 
     // 执行请求
+    println("Starting download...");
     CURLcode res = curl_easy_perform(curl);
 
     // 获取 HTTP 状态码
@@ -588,6 +704,7 @@ bool PluginManager::internalDownload(const std::string& url, const std::string& 
 
     if (res != CURLE_OK) {
         println(RED << "Curl Error: " << curl_easy_strerror(res) << RESET);
+        println(RED << "Error code: " << res << RESET);
         std::remove(localPath.c_str()); // 失败了就清理掉空文件
         return false;
     }
@@ -598,5 +715,6 @@ bool PluginManager::internalDownload(const std::string& url, const std::string& 
         return false;
     }
 
+    println(GREEN << "Download completed successfully!" << RESET);
     return true;
 }

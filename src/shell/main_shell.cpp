@@ -557,7 +557,7 @@ int execute(const std::string& input) {
     else if (cmd[0] == "plugin" || cmd[0] == "plugins") {
         if (cmd.size() < 2) {
             printf("Usage: plugin <command> [args...]\n");
-            printf("Commands: install-all, list, run <plugin_name> [args...]\n");
+            printf("Commands: install-all, list, run, install, uninstall, remove, enable, disable, available, download, repo\n");
             return 1;
         }
 
@@ -591,6 +591,27 @@ int execute(const std::string& input) {
             }
             PluginManager::uninstallPlugin(cmd[2]);
         }
+        else if (cmd[1] == "remove") {
+            if (cmd.size() < 3) {
+                println("Usage: plugin remove <plugin_name>");
+                return 1;
+            }
+            PluginManager::removePlugin(cmd[2]);
+        }
+        else if (cmd[1] == "enable") {
+            if (cmd.size() < 3) {
+                println("Usage: plugin enable <plugin_name>");
+                return 1;
+            }
+            PluginManager::enablePlugin(cmd[2]);
+        }
+        else if (cmd[1] == "disable") {
+            if (cmd.size() < 3) {
+                println("Usage: plugin disable <plugin_name>");
+                return 1;
+            }
+            PluginManager::disablePlugin(cmd[2]);
+        }
         else if (cmd[1] == "available") {
             if (cmd.size() > 2) {
                 println("Usage: plugin available");
@@ -616,7 +637,7 @@ int execute(const std::string& input) {
         else {
             println("Unknown plugin command: " << cmd[1].c_str());
             println("Usage: plugin <command> [args...]\n");
-            println("Commands: install-all, list, run, install, uninstall, available, download, repo\n");
+            println("Commands: install-all, list, run, install, uninstall, remove, enable, disable, available, download, repo\n");
         }
         return 1;
     }
