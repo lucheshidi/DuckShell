@@ -38,7 +38,16 @@ if(ENABLE_REMOTE_REPO)
             curl
             URL      https://github.com/curl/curl/releases/download/curl-8_5_0/curl-8.5.0.tar.gz
             DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+            # 为curl设置特定的构建选项
+            OVERRIDE_FIND_PACKAGE
     )
+    
+    # 使用现代CMake方法处理FetchContent
+    set(CURL_STATICLIB ON CACHE BOOL "" FORCE)
+    set(BUILD_CURL_EXE OFF CACHE BOOL "" FORCE)
+    set(CMAKE_USE_OPENSSL ON CACHE BOOL "" FORCE)
+    
+    # 使用FetchContent_MakeAvailable来处理依赖
     FetchContent_MakeAvailable(curl)
 
     add_definitions(-DHAVE_LIBCURL)

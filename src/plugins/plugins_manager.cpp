@@ -26,10 +26,44 @@ using json = nlohmann::json;
 
 #include <cstring>
 
-// 确保curl头文件被包含，即使在某些构建配置中
-#if defined(HAVE_LIBCURL) || defined(__linux__) || defined(__APPLE__)
+// 条件包含curl头文件，确保在没有curl开发包时也能编译
+#ifdef HAVE_LIBCURL
 #include <curl/curl.h>
-#endif
+#else
+// 如果没有curl支持，提供空的函数实现
+#warning "libcurl development package not found. Plugin download functionality will be disabled."
+
+// 提供假的curl类型定义以避免编译错误
+typedef void CURL;
+typedef enum {
+    CURLE_OK = 0,
+    // 添加其他常用的CURLcode值
+} CURLcode;
+
+// 提供假的函数声明
+static inline CURL* curl_easy_init() { return nullptr; }
+static inline void curl_easy_cleanup(CURL* curl) {}
+static inline CURLcode curl_easy_perform(CURL* curl) { return CURLE_OK; }
+static inline CURLcode curl_easy_setopt(CURL* curl, int option, ...) { return CURLE_OK; }
+static inline CURLcode curl_easy_getinfo(CURL* curl, int info, ...) { return CURLE_OK; }
+static inline const char* curl_easy_strerror(CURLcode code) { return "CURL not available"; }
+
+// 常用的CURLOPT_*常量
+#define CURLOPT_URL 0
+#define CURLOPT_FOLLOWLOCATION 1
+#define CURLOPT_WRITEFUNCTION 2
+#define CURLOPT_WRITEDATA 3
+#define CURLOPT_USERAGENT 4
+#define CURLOPT_TIMEOUT 5
+#define CURLOPT_CONNECTTIMEOUT 6
+#define CURLOPT_VERBOSE 7
+#define CURLOPT_SSL_OPTIONS 8
+#define CURLOPT_CAINFO 9
+#define CURLOPT_DEBUGFUNCTION 10
+#define CURLINFO_RESPONSE_CODE 11
+#define CURLSSLOPT_NATIVE_CA 12
+
+#endif // HAVE_LIBCURL
 
 #ifdef __APPLE__
 #include <unistd.h>  // macOS需要这个头文件来使用unlink函数
@@ -657,6 +691,15 @@ bool PluginManager::internalDownload(const std::string& url, const std::string& 
     println("Attempting to download: " << url);
     println("Saving to: " << localPath);
     
+#ifndef HAVE_LIBCURL
+    println(RED << "Error: libcurl development package not found. Plugin download functionality is disabled." << RESET);
+    println("Please install libcurl development package:");
+#ifdef __linux__
+    println("  Ubuntu/Debian: sudo apt-get install libcurl4-openssl-dev");
+    println("  CentOS/RHEL: sudo yum install libcurl-devel");
+#endif
+    return false;
+#else
     CURL* curl = curl_easy_init();
     if (!curl) {
         println(RED << "Error: Failed to initialize CURL" << RESET);
@@ -726,4 +769,5 @@ bool PluginManager::internalDownload(const std::string& url, const std::string& 
 
     println(GREEN << "Download completed successfully!" << RESET);
     return true;
+#endif // HAVE_LIBCURL
 }

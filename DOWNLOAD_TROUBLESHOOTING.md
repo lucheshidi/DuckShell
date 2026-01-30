@@ -36,6 +36,14 @@ plugin available
 - **说明**：不同平台需要不同的头文件包含
 - **解决方案**：已修复头文件包含问题，重新编译即可
 
+#### 问题5：Linux ARM缺少curl开发包
+- **症状**：`fatal error: curl/curl.h: No such file or directory`
+- **说明**：系统缺少libcurl开发包
+- **解决方案**：
+  - Ubuntu/Debian: `sudo apt-get install libcurl4-openssl-dev`
+  - CentOS/RHEL: `sudo yum install libcurl-devel`
+  - 或者禁用远程仓库功能：`cmake -DENABLE_REMOTE_REPO=OFF ..`
+
 #### 问题3：仓库URL不可访问
 - **症状**：连接超时或404错误
 - **解决方案**：

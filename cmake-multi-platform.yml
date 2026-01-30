@@ -76,13 +76,23 @@ jobs:
           g++ --version
         timeout-minutes: 15
 
+      - name: Install dependencies for Linux ARM64
+        if: runner.os == 'Linux' && matrix.architecture == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-aarch64-linux-gnu libcurl4-openssl-dev
+          echo "Dependencies installed successfully"
+
       - name: Configure CMake on Linux ARM64
         if: runner.os == 'Linux' && matrix.architecture == 'arm64'
         run: |
           cmake -B ${{github.workspace}}/build \
                 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
                 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-                -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+                -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+                -DCMAKE_SYSTEM_NAME=Linux \
+                -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+                -DCMAKE_FIND_ROOT_PATH=/usr/aarch64-linux-gnu
 
       - name: Configure CMake on macOS AMD64
         if: runner.os == 'macOS' && matrix.architecture == 'amd64'
