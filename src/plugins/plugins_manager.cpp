@@ -29,7 +29,7 @@ using json = nlohmann::json;
 
 // 定义静态成员变量
 std::map<std::string, bool> PluginManager::installed_plugins;
-std::string PluginManager::repository_url = "https://duckshell.dpdns.org";
+std::string PluginManager::repository_url = "https://dsrepo.lucheshidi.dpdns.org";
 
 namespace {
     size_t write_data(void* ptr, size_t size, size_t nmemb, FILE* stream) {
@@ -552,55 +552,6 @@ std::string PluginManager::resolvePluginName(const std::string& pluginName) {
     // 如果找不到，返回原始名称
     return pluginName;
 }
-
-
-#if defined(HAVE_LIBCURL)
-bool PluginManager::downloadWithCurl(const std::string& url, const std::string& outputFile) {
-    CURL* curl = curl_easy_init();
-    if (!curl) return false;
-
-    FILE* fp = fopen(outputFile.c_str(), "wb");
-    if (!fp) {
-        curl_easy_cleanup(curl);
-        return false;
-    }
-
-    // 设置 URL
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-
-    // 关键：允许重定向 (Cloudflare 隧道经常返回 301/302)
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-
-    // 设置回调函数
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
-
-    // 设置 User-Agent (模仿浏览器，避免被拦截)
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "DuckShell/1.0 (Linux; RaspberryPi)");
-
-    // 超时设置
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
-
-    // 执行下载
-    CURLcode res = curl_easy_perform(curl);
-
-    // 检查 HTTP 状态码
-    long response_code = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-
-    fclose(fp);
-    curl_easy_cleanup(curl);
-
-    if (res != CURLE_OK || response_code != 200) {
-        println("Curl failed: " << curl_easy_strerror(res) << " (HTTP " << response_code << ")");
-        remove(outputFile.c_str()); // 下载失败则删除空文件
-        return false;
-    }
-
-    return true;
-}
-#endif
 
 bool PluginManager::internalDownload(const std::string& url, const std::string& localPath) {
     CURL* curl = curl_easy_init();

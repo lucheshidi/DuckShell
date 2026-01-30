@@ -616,7 +616,7 @@ int execute(const std::string& input) {
         else {
             println("Unknown plugin command: " << cmd[1].c_str());
             println("Usage: plugin <command> [args...]\n");
-            println("Commands: install-all, list, run, install, uninstall, available, download\n");
+            println("Commands: install-all, list, run, install, uninstall, available, download, repo\n");
         }
         return 1;
     }

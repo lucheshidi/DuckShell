@@ -35,7 +35,6 @@ private:
     static std::map<std::string, bool> installed_plugins;
     static std::vector<std::string> getDirectoryContents(const std::string& path);
 
-    static bool downloadWithCurl(const std::string& url, const std::string& outputFile);
     static bool internalDownload(const std::string& url, const std::string& localPath);
     // ZIP 解压（最小改动方案）。需要 HAVE_MINIZIP 才会有实际实现。
     static std::map<std::string, std::string> command_to_plugin_map; // command -> plugin_name 映射
