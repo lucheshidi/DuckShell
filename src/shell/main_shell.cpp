@@ -263,9 +263,13 @@ static std::string read_line_interactive(const std::string& prompt_shown) {
 
         if (ch == 12) { // Ctrl+L
 #ifdef _WIN32
-            (void)system("cls");
+            if (system("cls") != 0) {
+                // 忽略错误
+            }
 #else
-            (void)system("clear");
+            if (system("clear") != 0) {
+                // 忽略错误
+            }
 #endif
             std::cout << "\r" << prompt_shown << current_buffer;
             // 将光标移动到正确位置
@@ -310,9 +314,13 @@ int execute(const std::string& input) {
 
     else if (cmd[0] == "cls" || cmd[0] == "clear") {
 #ifdef _WIN32
-        (void)system("cls");
+        if (system("cls") != 0) {
+            // 忽略错误
+        }
 #else
-        (void)system("clear");
+        if (system("clear") != 0) {
+            // 忽略错误
+        }
 #endif
     }
 

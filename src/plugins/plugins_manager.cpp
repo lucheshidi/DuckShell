@@ -26,6 +26,15 @@ using json = nlohmann::json;
 
 #include <cstring>
 
+// 确保curl头文件被包含，即使在某些构建配置中
+#if defined(HAVE_LIBCURL) || defined(__linux__) || defined(__APPLE__)
+#include <curl/curl.h>
+#endif
+
+#ifdef __APPLE__
+#include <unistd.h>  // macOS需要这个头文件来使用unlink函数
+#endif
+
 // 辅助函数：更新插件列表文件
 void PluginManager::updatePluginsListFile() {
     std::string pluginsListFile = home_dir + "/duckshell/plugins.ls";
