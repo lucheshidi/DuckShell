@@ -1,5 +1,5 @@
 #include "header.h"
-#include "plugins/plugins_manager.h"
+#include "plugins/plugin_manager.h"
 #include "version.h"
 
 int main(int argc, char **argv) {

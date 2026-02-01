@@ -58,13 +58,29 @@ endif()
 add_executable(DuckShell
         src/main.cpp
         src/header.h
-        src/shell/main_shell.cpp
-        src/plugins/plugins_manager.cpp
-        src/plugins/plugins_manager.h
+        src/shell/shell_main.cpp
+        src/shell/shell_commands.cpp
+        src/shell/shell_commands.h
+        src/shell/shell_input.cpp
+        src/shell/shell_input.h
+        src/plugins/plugin_manager.cpp
+        src/plugins/plugin_manager.h
+        src/plugins/plugin_loader.cpp
+        src/plugins/plugin_loader.h
+        src/plugins/plugin_installer.cpp
+        src/plugins/plugin_installer.h
+        src/plugins/plugin_repository.cpp
+        src/plugins/plugin_repository.h
+        src/plugins/plugin_executor.cpp
+        src/plugins/plugin_executor.h
+        src/plugins/plugin_common.cpp
+        src/plugins/plugin_common.h
         src/plugins/plugins_interface.h
         src/global_vars.cpp
         src/global_vars.h
         src/json.hpp
+        src/plugin_system.h
+        src/shell_system.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated/version.h
 )
 
