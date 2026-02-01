@@ -356,7 +356,7 @@ int execute_command(const std::string& input) {
         }
         else if (cmd[1] == "repo") {
             if (cmd.size() < 3) {
-                println("Current Repository: " << PluginManager::repository_url.c_str());
+                println("Current Repository: " << PluginManager::repository_url().c_str());
             }
             else {
                 PluginManager::setRepositoryUrl(cmd[2]);

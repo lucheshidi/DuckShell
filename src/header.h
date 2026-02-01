@@ -1,5 +1,4 @@
-#ifndef HEADER_H
-#define HEADER_H
+#pragma once
 
 #include <iostream>
 #include <string>
@@ -46,8 +45,8 @@ const std::string BLINK = "\033[5m";
 #include <pwd.h>
 #endif
 
-#define println(out) std::cout << out << std::endl;
-#define print(out) std::cout << out;
+#define println(out) std::cout << out << std::endl
+#define print(out) std::cout << out
 
 // 声明全局变量（不定义）
 extern std::string home_dir;
@@ -65,5 +64,3 @@ inline bool is_directory_exists(const std::string& path) {
     }
     return (info.st_mode & S_IFDIR) != 0;
 }
-
-#endif
