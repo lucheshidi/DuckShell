@@ -3,6 +3,7 @@
 #define PLUGIN_REPOSITORY_H
 
 #include <string>
+#include <map>
 
 class PluginRepository {
 public:
@@ -12,6 +13,7 @@ public:
 
 private:
     static bool internal_download(const std::string& url, const std::string& local_path);
+    static std::map<std::string, std::string> remote_plugin_paths;
 };
 
 #endif // PLUGIN_REPOSITORY_H

@@ -5,9 +5,12 @@
 #include <map>
 #include <vector>
 
+class IPlugin;
+
 // 全局插件系统共享数据
 extern std::string plugin_repository_url;
 extern std::map<std::string, bool> plugin_installed_plugins;
 extern std::map<std::string, std::string> plugin_command_to_plugin_map;
+extern std::vector<IPlugin*> loaded_plugin_instances;
 
 #endif // PLUGIN_COMMON_H

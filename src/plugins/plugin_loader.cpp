@@ -21,6 +21,11 @@ using json = nlohmann::json;
 
 #include <cstring>
 
+// 声明全局变量，确保在 plugin_loader.cpp 中可以访问
+extern std::string home_dir;
+extern std::string dir_now;
+extern std::unordered_map<std::string, std::string> shell_global_vars;
+
 // 条件包含curl头文件，确保在没有curl开发包时也能编译
 #ifdef HAVE_LIBCURL
 #include <curl/curl.h>
@@ -93,6 +98,19 @@ void PluginLoader::load_plugins() {
 
 void PluginLoader::build_command_map() {
     PluginLoader::command_to_plugin_map().clear();
+    
+    // 清理之前的实例
+    for (auto plugin : loaded_plugin_instances) {
+        // 注意：这里由于是重新构建 map，可能需要考虑插件的生命周期管理
+        // 目前先简单清理，实际应用中可能需要更复杂的管理（比如根据 HMODULE 找到对应的 destroy 函数）
+        // 但因为这里是 build_command_map，可能是在加载阶段调用
+    }
+    loaded_plugin_instances.clear();
+
+    PluginContext context;
+    context.home_dir = home_dir;
+    context.current_dir = dir_now;
+    context.global_vars = &shell_global_vars;
 
     for (const auto& pair : PluginLoader::installed_plugins()) {
         if (pair.second) { // 只处理启用的插件
@@ -105,18 +123,22 @@ void PluginLoader::build_command_map() {
                 if (create_func) {
                     IPlugin* plugin = create_func();
                     if (plugin) {
+                        // 初始化插件
+                        plugin->on_setup(context);
+                        
                         // 获取插件支持的命令别名
-                        auto aliases = plugin->getCommandAliases();
+                        auto aliases = plugin->get_command_aliases();
                         for (const auto& alias : aliases) {
                             PluginLoader::command_to_plugin_map()[alias] = pair.first;
                         }
 
-                        if (auto destroy_func = reinterpret_cast<DestroyPluginFunc>(GetProcAddress(handle, "destroyPlugin"))) {
-                            destroy_func(plugin);
-                        }
+                        // 将插件实例保存到全局，以便 get_prompt 使用
+                        // 注意：这里没有释放插件，这会导致 DLL 一直加载，符合 shell 运行期间的需求
+                        loaded_plugin_instances.push_back(plugin);
                     }
                 }
-                FreeLibrary(handle);
+                // 不要 FreeLibrary，否则插件实例失效
+                // FreeLibrary(handle); 
             }
 #else
             // Unix/Linux 系统使用 dlopen/dlsym
@@ -126,19 +148,20 @@ void PluginLoader::build_command_map() {
                 if (create_func && dlerror() == NULL) {  // 检查错误
                     IPlugin* plugin = create_func();
                     if (plugin) {
+                        // 初始化插件
+                        plugin->on_setup(context);
+                        
                         // 获取插件支持的命令别名
-                        auto aliases = plugin->getCommandAliases();
+                        auto aliases = plugin->get_command_aliases();
                         for (const auto& alias : aliases) {
                             PluginLoader::command_to_plugin_map()[alias] = pair.first;
                         }
-
-                        DestroyPluginFunc destroy_func = (DestroyPluginFunc)dlsym(handle, "destroyPlugin");
-                        if (destroy_func && dlerror() == NULL) {
-                            destroy_func(plugin);
-                        }
+                        
+                        loaded_plugin_instances.push_back(plugin);
                     }
                 }
-                dlclose(handle);
+                // 不要 dlclose
+                // dlclose(handle);
             }
 #endif
         }

@@ -61,18 +61,8 @@ void PluginExecutor::execute_plugin_with_command(const std::string& plugin_name,
 
     IPlugin* plugin = create_func();
     if (plugin) {
-        // 将命令参数传递给插件
-        std::map<std::string, std::string> params;
-        for (size_t i = 0; i < cmd_args.size(); ++i) {
-            params["arg" + std::to_string(i)] = cmd_args[i];
-        }
-        params["argc"] = std::to_string(cmd_args.size());
-
-        // 触发一个事件让插件处理命令参数
-        plugin->onEvent("command_execute", params);
-
-        // 同时执行标准的 execute 方法
-        plugin->execute();
+        // 执行新接口的 on_execute
+        plugin->on_execute(cmd_args);
 
         DestroyPluginFunc destroy_func = (DestroyPluginFunc)GetProcAddress(handle, "destroyPlugin");
         if (destroy_func) {
@@ -100,23 +90,13 @@ void PluginExecutor::execute_plugin_with_command(const std::string& plugin_name,
 
     IPlugin* plugin = create_func();
     if (plugin) {
-        // 将命令参数传递给插件
-        std::map<std::string, std::string> params;
-        for (size_t i = 0; i < cmd_args.size(); ++i) {
-            params["arg" + std::to_string(i)] = cmd_args[i];
-        }
-        params["argc"] = std::to_string(cmd_args.size());
-
-        // 触发一个事件让插件处理命令参数
-        plugin->onEvent("command_execute", params);
-
-        // 同时执行标准的 execute 方法
-        plugin->execute();
+        // 执行新接口的 on_execute
+        plugin->on_execute(cmd_args);
 
         // 清除之前的错误
         dlerror();
         DestroyPluginFunc destroy_func = (DestroyPluginFunc)dlsym(handle, "destroyPlugin");
-        dlsym_error = dlerror();
+        const char* dlsym_error = dlerror();
         if (!dlsym_error && destroy_func) {
             destroy_func(plugin);
         }

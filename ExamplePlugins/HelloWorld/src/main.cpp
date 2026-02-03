@@ -1,93 +1,51 @@
 #include "plugins_interface.h"
 #include <iostream>
 #include <map>
+#include <vector>
 
 class HelloWorldPlugin : public IPlugin {
 private:
     bool enabled;
     std::map<std::string, std::string> config;
-    std::string lastError;
 
 public:
     HelloWorldPlugin() : enabled(true) {}
 
-    std::string getName() const override {
-        return "HelloWorldPlugin";
+    // 实现新接口的方法
+    bool on_setup(const PluginContext& context) override {
+        std::cout << "[HelloWorldPlugin] Setting up... Home: " << context.home_dir << std::endl;
+        return true;
     }
 
-    std::string getVersion() const override {
-        return "1.0.0";
-    }
-
-    std::string getDescription() const override {
-        return "A simple hello world demonstration plugin";
-    }
-
-    void execute() override {
+    void on_execute(const std::vector<std::string>& args) override {
         if (!enabled) {
             std::cout << "[HelloWorldPlugin] Plugin is currently disabled!" << std::endl;
             return;
         }
 
         std::cout << "[HelloWorldPlugin] Hello World! This is a working plugin." << std::endl;
-        std::cout << "[HelloWorldPlugin] Current configuration has " << config.size() << " entries." << std::endl;
-    }
-
-    bool initialize() override {
-        std::cout << "[HelloWorldPlugin] Initializing plugin..." << std::endl;
-        enabled = true;
-        return true;
-    }
-
-    void shutdown() override {
-        std::cout << "[HelloWorldPlugin] Shutting down plugin..." << std::endl;
-        enabled = false;
-    }
-
-    bool setConfig(const std::string &key, const std::string &value) override {
-        config[key] = value;
-        return true;
-    }
-
-    std::string getConfig(const std::string &key) const override {
-        auto it = config.find(key);
-        if (it != config.end()) {
-            return it->second;
-        }
-        return "";
-    }
-
-    bool isEnabled() const override {
-        return enabled;
-    }
-
-    void setEnabled(bool enabled) override {
-        this->enabled = enabled;
-    }
-
-    std::vector<std::string> getDependencies() const override {
-        return {};
-    }
-
-    // 在 HelloWorldPlugin 的 onEvent 方法中添加处理逻辑
-    void onEvent(const std::string &eventName, const std::map<std::string, std::string> &params) override {
-        if (eventName == "command_execute") {
-            std::cout << "[HelloWorldPlugin] Received command with " << params.at("argc") << " arguments:" << std::endl;
-            int argc = std::stoi(params.at("argc"));
-            for (int i = 0; i < argc; ++i) {
-                std::string argKey = "arg" + std::to_string(i);
-                auto it = params.find(argKey);
-                if (it != params.end()) {
-                    std::cout << "  Argument " << i << ": " << it->second << std::endl;
-                }
+        if (!args.empty()) {
+            std::cout << "[HelloWorldPlugin] Arguments received:" << std::endl;
+            for (size_t i = 0; i < args.size(); ++i) {
+                std::cout << "  [" << i << "] " << args[i] << std::endl;
             }
         }
     }
 
-
-    std::string getLastError() const override {
-        return lastError;
+    std::vector<std::string> get_command_aliases() override {
+        return {"hello", "hi"};
     }
+
+    std::string get_prompt() override {
+        // 演示：当插件启用时，可以在 prompt 中添加点东西
+        return "[Hello] ";
+    }
+
+    void on_event(const std::string& event, const std::map<std::string, std::string>& params) override {
+        std::cout << "[HelloWorldPlugin] Received event: " << event << std::endl;
+    }
+
+    // 适配旧代码中可能调用的旧名称（如果有的话，但 IPlugin 接口已经变了，所以我们直接重写）
 };
 
 extern "C" {

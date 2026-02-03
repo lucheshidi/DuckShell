@@ -12,6 +12,8 @@
 #include "../json.hpp" // 引入头文件
 using json = nlohmann::json;
 
+std::map<std::string, std::string> PluginRepository::remote_plugin_paths;
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -77,21 +79,34 @@ void PluginRepository::list_remote_plugins() {
         file.close();
         remove(temp_html.c_str());
 
-        println("--- Remote Plugin Repository ---");
+        //println("--- Remote Plugin Repository ---");
+
+        remote_plugin_paths.clear();
 
         // 使用正则或简单的字符串查找抓取 <a> 标签
-        // 格式预期：<a href="/packages/test-plugin/">test-plugin</a>
+        // 格式预期：<a href="/plugins/test-plugin/">test-plugin</a>
         size_t pos = 0;
         bool found = false;
-        while ((pos = content.find("<a href=", pos)) != std::string::npos) {
-            size_t start = content.find(">", pos) + 1;
-            size_t end = content.find("</a>", start);
-            if (start != std::string::npos && end != std::string::npos) {
-                std::string name = content.substr(start, end - start);
-                println("  * " << name.c_str());
-                found = true;
+        while ((pos = content.find("<a href=\"", pos)) != std::string::npos) {
+            size_t href_start = pos + 9; // strlen("<a href=\"")
+            size_t href_end = content.find("\"", href_start);
+            
+            if (href_end != std::string::npos) {
+                std::string href = content.substr(href_start, href_end - href_start);
+                
+                size_t name_start = content.find(">", href_end) + 1;
+                size_t name_end = content.find("</a>", name_start);
+                
+                if (name_start != std::string::npos && name_end != std::string::npos) {
+                    std::string name = content.substr(name_start, name_end - name_start);
+                    //println("  * " << name.c_str());
+                    remote_plugin_paths[name] = href;
+                    found = true;
+                }
+                pos = name_end;
+            } else {
+                pos = href_start;
             }
-            pos = end;
         }
         if(!found) println(" (No plugins found in index)");
     } else {
@@ -103,10 +118,43 @@ void PluginRepository::list_remote_plugins() {
 void PluginRepository::download_plugin(const std::string& plugin_name) {
     if (PluginLoader::repository_url().empty()) return;
 
+    // 如果还没有加载过列表，或者找不到该插件，先尝试加载一次
+    if (remote_plugin_paths.find(plugin_name) == remote_plugin_paths.end()) {
+        println("Plugin info not in cache, fetching index...");
+        list_remote_plugins();
+    }
+
+    std::string base_url;
+    if (remote_plugin_paths.find(plugin_name) != remote_plugin_paths.end()) {
+        std::string path = remote_plugin_paths[plugin_name];
+        // 拼接完整 URL。注意：如果 href 是绝对路径（以 http 开头），则直接使用
+        if (path.find("http") == 0) {
+            base_url = path;
+        } else {
+            // 否则拼接到 repository_url
+            // 确保没有双斜杠
+            std::string repo = PluginLoader::repository_url();
+            if (!repo.empty() && repo.back() == '/' && !path.empty() && path.front() == '/') {
+                base_url = repo + path.substr(1);
+            } else if (!repo.empty() && repo.back() != '/' && !path.empty() && path.front() != '/') {
+                base_url = repo + "/" + path;
+            } else {
+                base_url = repo + path;
+            }
+        }
+        // 如果 path 以 / 结尾，去掉它，因为后面会加 /plugin.json
+        if (!base_url.empty() && base_url.back() == '/') {
+            base_url.pop_back();
+        }
+    } else {
+        // 回退到原有的硬编码逻辑（兼容模式）
+        base_url = PluginLoader::repository_url() + "/plugins/" + plugin_name;
+    }
+
     // 1. 准备元数据路径
-    std::string base_url = PluginLoader::repository_url() + "/packages/" + plugin_name;
     std::string meta_url = base_url + "/plugin.json";
     std::string temp_json = home_dir + "/duckshell/temp_meta.json";
+
 
     println("Fetching metadata: " << meta_url.c_str());
 
@@ -144,7 +192,7 @@ void PluginRepository::download_plugin(const std::string& plugin_name) {
         }
 
         // 5. 执行二进制下载
-        // 结构: .../packages/PluginName/v1.0/PluginName.dll
+        // 结构: .../plugins/PluginName/v1.0/PluginName.dll
         std::string binary_url = base_url + "/" + version_path + "/" + plugin_name + ext;
         std::string local_path = home_dir + "/duckshell/plugins/" + plugin_name + ext;
 
