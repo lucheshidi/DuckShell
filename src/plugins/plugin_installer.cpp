@@ -14,6 +14,7 @@
 #else
 #include <dirent.h>
 #include <dlfcn.h>      // Unix 动态库加载
+#include <unistd.h>     // 包含 unlink 函数
 #endif
 
 void PluginInstaller::install_plugin(const std::string& plugin_name) {

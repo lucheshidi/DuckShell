@@ -10,8 +10,33 @@
 #include <list>
 #include <unordered_map>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef VC_EXTRALEAN
+#define VC_EXTRALEAN
+#endif
+#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <wininet.h>
+#endif
+
 #if defined(HAVE_LIBCURL)
 #include <curl/curl.h>
+#endif
+
+#ifdef _WIN32
+#pragma comment(lib, "wininet.lib")
+#include <direct.h>
+#elif __unix__
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <limits.h>
+#include <pwd.h>
 #endif
 
 // ANSI Color codes
@@ -29,21 +54,6 @@ const std::string DIM = "\033[2m";
 const std::string ITALIC = "\033[3m";
 const std::string UNDER = "\033[4m";
 const std::string BLINK = "\033[5m";
-
-#ifdef _WIN32
-#include <winsock2.h>
-#include <windows.h>
-#include <wininet.h>
-#pragma comment(lib, "wininet.lib")
-#include <direct.h>
-#elif __unix__
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <signal.h>
-#include <limits.h>
-#include <pwd.h>
-#endif
 
 #define println(out) std::cout << out << std::endl
 #define print(out) std::cout << out

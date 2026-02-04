@@ -9,9 +9,7 @@
 #include "plugins_interface.h"
 #include "../header.h"
 
-#ifdef _WIN32
-#include <windows.h>
-#else
+#ifndef _WIN32
 #include <dlfcn.h>      // Unix 动态库加载
 #endif
 
