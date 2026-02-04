@@ -15,6 +15,9 @@
 #ifndef _WIN32
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #endif
 
 // 字符串分割辅助函数
