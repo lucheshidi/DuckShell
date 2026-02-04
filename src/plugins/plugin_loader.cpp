@@ -97,15 +97,10 @@ void PluginLoader::load_plugins() {
 }
 
 void PluginLoader::build_command_map() {
-    PluginLoader::command_to_plugin_map().clear();
+    command_to_plugin_map().clear();
     
-    // 清理之前的实例
-    for (auto plugin : loaded_plugin_instances) {
-        // 注意：这里由于是重新构建 map，可能需要考虑插件的生命周期管理
-        // 目前先简单清理，实际应用中可能需要更复杂的管理（比如根据 HMODULE 找到对应的 destroy 函数）
-        // 但因为这里是 build_command_map，可能是在加载阶段调用
-    }
-    loaded_plugin_instances.clear();
+    // 不再直接清空实例映射，以实现重用和防止重复初始化 (on_setup)
+    std::vector<IPlugin*> current_instances;
 
     PluginContext context;
     context.home_dir = home_dir;
@@ -114,58 +109,60 @@ void PluginLoader::build_command_map() {
 
     for (const auto& pair : PluginLoader::installed_plugins()) {
         if (pair.second) { // 只处理启用的插件
-            std::string plugin_path = home_dir + "/duckshell/plugins/" + pair.first;
+            std::string resolved_name = PluginLoader::resolve_plugin_name(pair.first);
+            
+            IPlugin* plugin = nullptr;
+            // 检查是否已经存在该插件的实例
+            auto it_instance = plugin_name_to_instance.find(resolved_name);
+            if (it_instance != plugin_name_to_instance.end() && it_instance->second != nullptr) {
+                plugin = it_instance->second;
+            } else {
+                // 实例不存在，尝试加载
+                std::string plugin_path = home_dir + "/duckshell/plugins/" + resolved_name;
 
 #ifdef _WIN32
-            HMODULE handle = LoadLibraryA(plugin_path.c_str());
-            if (handle) {
-                CreatePluginFunc create_func = (CreatePluginFunc)GetProcAddress(handle, "createPlugin");
-                if (create_func) {
-                    IPlugin* plugin = create_func();
-                    if (plugin) {
-                        // 初始化插件
-                        plugin->on_setup(context);
-                        
-                        // 获取插件支持的命令别名
-                        auto aliases = plugin->get_command_aliases();
-                        for (const auto& alias : aliases) {
-                            PluginLoader::command_to_plugin_map()[alias] = pair.first;
+                HMODULE handle = LoadLibraryA(plugin_path.c_str());
+                if (handle) {
+                    CreatePluginFunc create_func = (CreatePluginFunc)GetProcAddress(handle, "createPlugin");
+                    if (create_func) {
+                        plugin = create_func();
+                        if (plugin) {
+                            // 只有新创建的实例才调用 on_setup
+                            plugin->on_setup(context);
+                            plugin_name_to_instance[resolved_name] = plugin;
+                            plugin_name_to_handle[resolved_name] = handle;
                         }
-
-                        // 将插件实例保存到全局，以便 get_prompt 使用
-                        // 注意：这里没有释放插件，这会导致 DLL 一直加载，符合 shell 运行期间的需求
-                        loaded_plugin_instances.push_back(plugin);
                     }
                 }
-                // 不要 FreeLibrary，否则插件实例失效
-                // FreeLibrary(handle); 
-            }
 #else
-            // Unix/Linux 系统使用 dlopen/dlsym
-            void* handle = dlopen(plugin_path.c_str(), RTLD_LAZY);
-            if (handle) {
-                CreatePluginFunc create_func = (CreatePluginFunc)dlsym(handle, "createPlugin");
-                if (create_func && dlerror() == NULL) {  // 检查错误
-                    IPlugin* plugin = create_func();
-                    if (plugin) {
-                        // 初始化插件
-                        plugin->on_setup(context);
-                        
-                        // 获取插件支持的命令别名
-                        auto aliases = plugin->get_command_aliases();
-                        for (const auto& alias : aliases) {
-                            PluginLoader::command_to_plugin_map()[alias] = pair.first;
+                void* handle = dlopen(plugin_path.c_str(), RTLD_LAZY);
+                if (handle) {
+                    CreatePluginFunc create_func = (CreatePluginFunc)dlsym(handle, "createPlugin");
+                    if (create_func && dlerror() == NULL) {
+                        plugin = create_func();
+                        if (plugin) {
+                            plugin->on_setup(context);
+                            plugin_name_to_instance[resolved_name] = plugin;
+                            plugin_name_to_handle[resolved_name] = handle;
                         }
-                        
-                        loaded_plugin_instances.push_back(plugin);
                     }
                 }
-                // 不要 dlclose
-                // dlclose(handle);
-            }
 #endif
+            }
+
+            if (plugin) {
+                // 注册命令别名
+                auto aliases = plugin->get_command_aliases();
+                for (const auto& alias : aliases) {
+                    PluginLoader::command_to_plugin_map()[alias] = resolved_name;
+                }
+                current_instances.push_back(plugin);
+            }
         }
     }
+    
+    // 更新全局实例列表（用于 get_prompt 等功能）
+    loaded_plugin_instances = current_instances;
 }
 
 bool PluginLoader::is_plugin_installed(const std::string& plugin_name) {
@@ -174,9 +171,16 @@ bool PluginLoader::is_plugin_installed(const std::string& plugin_name) {
 }
 
 bool PluginLoader::is_plugin_command(const std::string& command) {
-    // 可以维护一个特殊命令列表，避免与插件名冲突
-    static std::set<std::string> builtin_commands = {"help", "exit", "cd", "ls", "plugin"};
-    return builtin_commands.find(command) != builtin_commands.end();
+    // 1. 检查是否是内置命令
+    // 注意：内置命令应当由 execute_command 优先处理
+    static std::set<std::string> builtin_commands = {"help", "exit", "cd", "ls", "plugin", "plugins", "cls", "clear", "echo", "print", "set", "var", "rm", "rmv", "del", "new", "crt", "mk"};
+    if (builtin_commands.find(command) != builtin_commands.end()) {
+        return false; // 内置命令不应被视为“插件命令”转发
+    }
+
+    // 2. 检查是否在插件命令映射表中
+    auto& command_map = PluginLoader::command_to_plugin_map();
+    return command_map.find(command) != command_map.end();
 }
 
 // 在 PluginLoader 类中添加声明

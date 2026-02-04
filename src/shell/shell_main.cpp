@@ -21,9 +21,6 @@
  * @return Exit Code
  */
 int startup(const std::string &param) {
-    // 初始化插件系统
-    PluginManager::loadPlugins();
-
     if (param.empty()) {
         std::string command;
         while (true) {
@@ -41,8 +38,6 @@ int startup(const std::string &param) {
                 ? (std::string("DUCKSHELL { ") + dir_now + " }> ")
                 : custom_prompt;
                 
-            print(prompt);
-            std::cout.flush();
             command = read_line_interactive(prompt);
 
             // 添加命令到历史记录（除非是空命令或与上一条相同）
@@ -59,11 +54,14 @@ int startup(const std::string &param) {
             }
 
             if (!command.empty()) {
-                // TODO: 处理命令执行逻辑
-                println(BOLD << YELLOW << "Executing: " << command << RESET);
                 if (const int exit_code = execute_command(command); exit_code != 0) {
                     // TODO
                 }
+                // 在执行完一条命令后，打印一个换行符，
+                // 确保下一个 prompt 之前有明显的间隔，
+                // 并且确保子进程的所有异步输出都已经落地。
+                std::cout.flush();
+                std::cerr.flush();
             }
         }
     }

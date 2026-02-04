@@ -13,3 +13,4 @@ std::string home_dir = []() {
 }();
 
 std::string dir_now = home_dir;
+std::unordered_map<std::string, std::string> shell_global_vars;

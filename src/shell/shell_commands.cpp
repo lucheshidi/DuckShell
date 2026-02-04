@@ -6,6 +6,8 @@
 #include <sstream>
 #include <cstdint>
 #include <regex>
+#include <cstring>
+#include <cerrno>
 
 #include "../header.h"
 #include "../plugins/plugin_manager.h"
@@ -29,18 +31,162 @@ std::vector<std::string> split(const std::string& str, char delimiter) {
     return tokens;
 }
 
-int execute_command(const std::string& input) {
-    if (const std::vector<std::string> cmd = split(input, ' '); cmd.empty()) return 1;
+// 跨平台执行外部程序
+int execute_external_command(const std::vector<std::string>& args) {
+    if (args.empty()) return 0;
 
-    else if (cmd[0] == "cls" || cmd[0] == "clear") {
 #ifdef _WIN32
-        if (system("cls") != 0) {
-            // 忽略错误
+    // Windows 实现: 使用 CreateProcess
+    std::string command_line;
+    for (size_t i = 0; i < args.size(); ++i) {
+        std::string arg = args[i];
+        // 如果参数包含空格且没被引号包裹，则包裹它
+        if (arg.find(' ') != std::string::npos && arg.front() != '\"') {
+            arg = "\"" + arg + "\"";
         }
+        command_line += arg + (i == args.size() - 1 ? "" : " ");
+    }
+
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
+
+    // CreateProcess 需要可修改的字符串缓冲
+    std::vector<char> cmd_buf(command_line.begin(), command_line.end());
+    cmd_buf.push_back('\0');
+
+    if (!CreateProcessA(NULL, cmd_buf.data(), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+        return -1; // 创建进程失败
+    }
+
+    // 等待进程结束
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    DWORD exit_code;
+    GetExitCodeProcess(pi.hProcess, &exit_code);
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    return (int)exit_code;
 #else
-        if (system("clear") != 0) {
-            // 忽略错误
+    // Unix 实现: 使用 fork + execvp
+    pid_t pid = fork();
+    if (pid == 0) {
+        // 子进程
+        std::vector<char*> c_args;
+        for (const auto& arg : args) {
+            c_args.push_back(const_cast<char*>(arg.c_str()));
         }
+        c_args.push_back(nullptr);
+
+        execvp(c_args[0], c_args.data());
+        // 如果 execvp 返回，说明执行失败
+        std::cerr << "DuckShell: failed to execute " << c_args[0] << ": " << strerror(errno) << std::endl;
+        exit(127);
+    } else if (pid > 0) {
+        // 父进程
+        int status;
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status)) {
+            return WEXITSTATUS(status);
+        }
+        return -1;
+    } else {
+        // fork 失败
+        return -1;
+    }
+#endif
+}
+
+// 辅助函数：处理字符串变换逻辑，如 .replace()
+std::string transform_string(std::string text) {
+    // 处理变量替换 ${var} 或 ${var.replace("old", "new")}
+    std::regex var_regex(R"(\$\{([^}]+)\})");
+    std::smatch match;
+    std::string result = text;
+
+    while (std::regex_search(result, match, var_regex)) {
+        std::string expression = match[1].str();
+        std::string replacement;
+
+        // 检查是否有 .replace() 调用
+        size_t dot_pos = expression.find(".replace(");
+        if (dot_pos != std::string::npos) {
+            std::string var_name = expression.substr(0, dot_pos);
+            std::string call = expression.substr(dot_pos + 9); // 去掉 ".replace("
+            
+            // 简单解析参数，例如 "old", "new")
+            size_t comma_pos = call.find(',');
+            size_t end_paren = call.find(')');
+            
+            if (comma_pos != std::string::npos && end_paren != std::string::npos) {
+                std::string old_str = call.substr(0, comma_pos);
+                std::string new_str = call.substr(comma_pos + 1, end_paren - comma_pos - 1);
+                
+                // 移除可能的引号
+                auto clean = [](std::string s) {
+                    s.erase(std::remove(s.begin(), s.end(), '\"'), s.end());
+                    s.erase(std::remove(s.begin(), s.end(), '\''), s.end());
+                    // 移除首尾空白
+                    size_t f = s.find_first_not_of(" ");
+                    size_t l = s.find_last_not_of(" ");
+                    if (f != std::string::npos && l != std::string::npos) return s.substr(f, l - f + 1);
+                    return s;
+                };
+                
+                old_str = clean(old_str);
+                new_str = clean(new_str);
+                
+                std::string base_val = shell_global_vars.count(var_name) ? shell_global_vars[var_name] : "";
+                
+                // 执行替换
+                if (!old_str.empty()) {
+                    size_t start_pos = 0;
+                    while((start_pos = base_val.find(old_str, start_pos)) != std::string::npos) {
+                        base_val.replace(start_pos, old_str.length(), new_str);
+                        start_pos += new_str.length();
+                    }
+                }
+                replacement = base_val;
+            }
+        } else {
+            // 普通变量替换
+            replacement = shell_global_vars.count(expression) ? shell_global_vars[expression] : "";
+        }
+
+        result.replace(match.position(0), match.length(0), replacement);
+    }
+
+    return result;
+}
+
+int execute_command(const std::string& input) {
+    // 移除首尾空白符及不可见的 \r 等
+    std::string trimmed = input;
+    size_t start = trimmed.find_first_not_of(" \t\n\r");
+    if (start == std::string::npos) return 0;
+    size_t end = trimmed.find_last_not_of(" \t\n\r");
+    trimmed = trimmed.substr(start, end - start + 1);
+
+    // 应用全局变量替换和字符串转换逻辑 (如 .replace())
+    std::string transformed = transform_string(trimmed);
+    
+    if (const std::vector<std::string> cmd_inner = split(transformed, ' '); cmd_inner.empty()) return 1;
+    const std::vector<std::string> cmd = split(transformed, ' ');
+
+    // 恢复用户要求的 Executing 消息
+    println("Executing: " << transformed);
+    std::cout.flush(); // 立即刷新，确保在命令执行前显示
+
+    if (cmd[0] == "cls" || cmd[0] == "clear") {
+#ifdef _WIN32
+        // 对于 cls, cmd.exe 是必需的，因为它是一个 cmd 内置命令
+        execute_external_command({"cmd", "/c", "cls"});
+#else
+        execute_external_command({"clear"});
 #endif
     }
 
@@ -367,7 +513,7 @@ int execute_command(const std::string& input) {
             println("Usage: plugin <command> [args...]\n");
             println("Commands: install-all, list, run, install, uninstall, remove, enable, disable, available, download, repo\n");
         }
-        return 1;
+        return 0;
     }
 
     // 文件系统操作
@@ -415,11 +561,11 @@ int execute_command(const std::string& input) {
                   "Options:\n"
                   "    -f      Create a file.\n"
                   "    -d      Create a directory.");
+            return 1;
         }
         else {
-            if (cmd[1] == "-f" || cmd[1] == "file" || cmd[1] == "File") {
-
-            }
+            println(YELLOW << "Feature not fully implemented yet." << RESET);
+            return 0;
         }
     }
 
@@ -429,7 +575,21 @@ int execute_command(const std::string& input) {
             println("");
         }
         else {
-            println(std::regex_replace(cmd[1], std::regex("\"", "\'"), ""));
+            // 由于现在 transformed 已经包含了所有的变量替换和 replace 逻辑，
+            // 且 cmd 是基于 transformed 分割的，我们可以直接组合 cmd[1...]
+            std::string content;
+            for (size_t i = 1; i < cmd.size(); ++i) {
+                content += cmd[i] + (i == cmd.size() - 1 ? "" : " ");
+            }
+            
+            // 移除最外层的引号（如果有）
+            if (content.length() >= 2 && 
+               ((content.front() == '\"' && content.back() == '\"') || 
+                (content.front() == '\'' && content.back() == '\''))) {
+                content = content.substr(1, content.length() - 2);
+            }
+            
+            println(content);
         }
     }
 
@@ -439,8 +599,15 @@ int execute_command(const std::string& input) {
             println(RED << BOLD << "Missing arguments. Usage: set key=value" << RESET);
         }
         else {
-            std::vector<std::string> var;
-            var = split(cmd[1], '=');
+            size_t pos = cmd[1].find('=');
+            if (pos != std::string::npos) {
+                std::string key = cmd[1].substr(0, pos);
+                std::string value = cmd[1].substr(pos + 1);
+                shell_global_vars[key] = value;
+                // println(GREEN << "Variable set: " << key << " = " << value << RESET);
+            } else {
+                println(RED << BOLD << "Invalid format. Usage: set key=value" << RESET);
+            }
         }
     }
 
@@ -454,24 +621,31 @@ int execute_command(const std::string& input) {
 
     // 如果是系统命令，尝试执行
     else {
-        // 构造完整的命令路径
-        const std::string& full_command = input;
+        // 确保在执行系统命令前刷新输出，避免乱序
+        std::cout.flush();
 
+        // 使用自定义的执行函数代替 system()
+        // system() 会调用 cmd.exe /c，而 execute_external_command 直接启动进程
+        int result = execute_external_command(cmd);
+
+        // 确保子进程的所有输出都已经打印出来
+        std::cout.flush();
+        std::cerr.flush();
+
+        if (result != 0) {
+            // 如果返回 -1，说明进程创建失败（找不到文件等）
+            // 如果返回 1 (Windows) 或 127 (Unix)，通常也表示命令未找到
 #ifdef _WIN32
-        // Windows系统命令执行
-        int result = system(full_command.c_str());
-        if (result != 0) {
-            println(YELLOW << "DuckShell: " << BOLD << "COMMAND NOT FOUND! Please specify another command." << RESET);
-            return 127;
-        }
+            if (result == -1 || result == 1) {
+                println(RED << BOLD << "DuckShell: COMMAND NOT FOUND! Please specify another command." << RESET);
+            }
 #else
-        // Unix/Linux系统命令执行
-        int result = system(full_command.c_str());
-        if (result != 0) {
-            println(YELLOW << "DuckShell: " << BOLD << "COMMAND NOT FOUND! Please specify another command." << RESET);
+            if (result == -1 || result == 127) {
+                println(RED << BOLD << "DuckShell: COMMAND NOT FOUND! Please specify another command." << RESET);
+            }
+#endif
             return 127;
         }
-#endif
     }
     return 0;
 }

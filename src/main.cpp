@@ -3,6 +3,18 @@
 #include "version.h"
 
 int main(int argc, char **argv) {
+#ifdef _WIN32
+    // 启用 Windows 10+ 控制台的 ANSI 转义序列支持
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (hOut != INVALID_HANDLE_VALUE) {
+        DWORD dwMode = 0;
+        if (GetConsoleMode(hOut, &dwMode)) {
+            dwMode |= 0x0004; // ENABLE_VIRTUAL_TERMINAL_PROCESSING
+            SetConsoleMode(hOut, dwMode);
+        }
+    }
+#endif
+
     println("DuckShell " << DUCKSHELL_VERSION);
     // 调试信息输出
     //std::cout << "Home directory: " << home_dir << std::endl;
@@ -55,9 +67,17 @@ int main(int argc, char **argv) {
     // 初始化插件系统
     PluginManager::loadPlugins();
     PluginManager::installAllPlugins(); // 扫描并安装所有插件
+    PluginManager::buildCommandMap();   // 构建命令映射表
 
     if (argc < 2) {
         startup();
+    } else {
+        std::string full_cmd;
+        for (int i = 1; i < argc; ++i) {
+            full_cmd += argv[i];
+            if (i < argc - 1) full_cmd += " ";
+        }
+        startup(full_cmd);
     }
     return 0;
 }
