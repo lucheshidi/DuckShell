@@ -20,11 +20,8 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#include <winsock2.h>
 #include <windows.h>
-#include <ws2tcpip.h>
-#include <wininet.h>
-#pragma comment(lib, "ws2_32.lib")
+// 注意：winsock2.h 在需要网络功能的特定文件中单独包含
 #pragma comment(lib, "wininet.lib")
 #endif
 
