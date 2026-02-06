@@ -17,10 +17,15 @@
 #ifndef VC_EXTRALEAN
 #define VC_EXTRALEAN
 #endif
-#include <windows.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <winsock2.h>
+#include <windows.h>
 #include <ws2tcpip.h>
 #include <wininet.h>
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "wininet.lib")
 #endif
 
 #if defined(HAVE_LIBCURL)
