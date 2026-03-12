@@ -2,12 +2,11 @@
 #include <iomanip>
 #include <cctype>
 #include <deque>
+#include <utility>
 #include <vector>
 #include <sstream>
-#include <cstdint>
 #include <regex>
 #include <cstring>
-#include <cerrno>
 
 #include "../header.h"
 #include "../plugins/plugin_manager.h"
@@ -45,7 +44,8 @@ int execute_external_command(const std::vector<std::string>& args) {
         std::string arg = args[i];
         // 如果参数包含空格且没被引号包裹，则包裹它
         if (arg.find(' ') != std::string::npos && arg.front() != '\"') {
-            arg = "\"" + arg + "\"";
+            arg.insert(0, "\"");
+            arg.append("\"");
         }
         command_line += arg + (i == args.size() - 1 ? "" : " ");
     }
@@ -60,7 +60,7 @@ int execute_external_command(const std::vector<std::string>& args) {
     std::vector<char> cmd_buf(command_line.begin(), command_line.end());
     cmd_buf.push_back('\0');
 
-    if (!CreateProcessA(NULL, cmd_buf.data(), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+    if (!CreateProcessA(nullptr, cmd_buf.data(), nullptr, nullptr, TRUE, 0, nullptr, nullptr, &si, &pi)) {
         return -1; // 创建进程失败
     }
 
@@ -73,7 +73,7 @@ int execute_external_command(const std::vector<std::string>& args) {
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 
-    return (int)exit_code;
+    return static_cast<int>(exit_code);
 #else
     // Unix 实现: 使用 fork + execvp
     pid_t pid = fork();
@@ -107,9 +107,9 @@ int execute_external_command(const std::vector<std::string>& args) {
 // 辅助函数：处理字符串变换逻辑，如 .replace()
 std::string transform_string(std::string text) {
     // 处理变量替换 ${var} 或 ${var.replace("old", "new")}
-    std::regex var_regex(R"(\$\{([^}]+)\})");
+    const std::regex var_regex(R"(\$\{([^}]+)\})");
     std::smatch match;
-    std::string result = text;
+    std::string result = std::move(text);
 
     while (std::regex_search(result, match, var_regex)) {
         std::string expression = match[1].str();
@@ -134,8 +134,8 @@ std::string transform_string(std::string text) {
                     s.erase(std::remove(s.begin(), s.end(), '\"'), s.end());
                     s.erase(std::remove(s.begin(), s.end(), '\''), s.end());
                     // 移除首尾空白
-                    size_t f = s.find_first_not_of(" ");
-                    size_t l = s.find_last_not_of(" ");
+                    size_t f = s.find_first_not_of(' ');
+                    size_t l = s.find_last_not_of(' ');
                     if (f != std::string::npos && l != std::string::npos) return s.substr(f, l - f + 1);
                     return s;
                 };
@@ -340,11 +340,11 @@ int execute_command(const std::string& input) {
             result += drivePrefix;
 #endif
             if (rooted) result.push_back(sep);
-            for (size_t i = 0; i < segments.size(); ++i) {
+            for (const auto & segment : segments) {
                 if (!(result.empty() || result.back() == sep)) {
                     result.push_back(sep);
                 }
-                result += segments[i];
+                result += segment;
             }
 
 #ifdef _WIN32
@@ -444,7 +444,7 @@ int execute_command(const std::string& input) {
                 return 1;
             }
 
-            std::string pluginName = cmd[2];
+            const std::string& pluginName = cmd[2];
             std::vector<std::string> pluginArgs(cmd.begin() + 3, cmd.end());
             PluginManager::executePluginWithCommand(pluginName, pluginArgs);
         }
@@ -505,16 +505,175 @@ int execute_command(const std::string& input) {
         }
         else if (cmd[1] == "repo") {
             if (cmd.size() < 3) {
-                println("Current Repository: " << PluginManager::repository_url().c_str());
+                // 显示所有仓库URL
+                println("Repository URLs (in priority order): ");
+                auto& urls = PluginLoader::repository_urls();
+                int index = 1;
+                for (const auto& url : urls) {
+                    println("  " << index << ". " << url.c_str());
+                    index++;
+                }
             }
             else {
-                PluginManager::setRepositoryUrl(cmd[2]);
+                if (cmd[2] == "add") {
+                    if (cmd.size() < 4) {
+                        println("Usage: plugin repo add <url>");
+                    } else {
+                        // 添加新的仓库URL到列表末尾
+                        const std::string& new_url = cmd[3];
+                        auto& urls = PluginLoader::repository_urls();
+                        
+                        // 检查URL是否已存在
+                        auto it = std::find(urls.begin(), urls.end(), new_url);
+                        if (it == urls.end()) {
+                            urls.push_back(new_url);
+                            
+                            // 更新主仓库URL为第一个
+                            if (!urls.empty()) {
+                                PluginLoader::repository_url() = urls.front();
+                            }
+                            
+                            // 将更改保存到repo.ls文件
+                            std::string repo_file = home_dir + "/duckshell/repo.ls";
+                            std::ofstream file(repo_file);
+                            if (file.is_open()) {
+                                for (const auto& url : urls) {
+                                    file << url << std::endl;
+                                }
+                                file.close();
+                                println("Repository added successfully: " << new_url.c_str());
+                            } else {
+                                println("Error: Could not save repository list to file.");
+                            }
+                        } else {
+                            println("Repository already exists: " << new_url.c_str());
+                        }
+                    }
+                } else if (cmd[2] == "remove" || cmd[2] == "rm") {
+                    if (cmd.size() < 4) {
+                        println("Usage: plugin repo remove <index_or_url>");
+                    } else {
+                        auto& urls = PluginLoader::repository_urls();
+                        if (urls.size() <= 1) {
+                            println("Error: Cannot remove the last repository.");
+                        } else {
+                            bool removed = false;
+                            // 检查是否为数字索引
+                            if (std::all_of(cmd[3].begin(), cmd[3].end(), ::isdigit)) {
+                                int index = std::stoi(cmd[3]) - 1;
+                                if (index >= 0 && index < static_cast<int>(urls.size())) {
+                                    auto it = urls.begin();
+                                    std::advance(it, index);
+                                    std::string removed_url = *it;
+                                    urls.erase(it);
+                                    removed = true;
+                                    
+                                    // 更新主仓库URL为第一个
+                                    if (!urls.empty()) {
+                                        PluginLoader::repository_url() = urls.front();
+                                    }
+                                    
+                                    println("Repository removed: " << removed_url.c_str());
+                                }
+                            } else {
+                                // 按URL字符串匹配
+                                if (auto it = std::find(urls.begin(), urls.end(), cmd[3]); it != urls.end()) {
+                                    const std::string& removed_url = *it;
+                                    urls.erase(it);
+                                    removed = true;
+                                    
+                                    println("Repository removed: " << removed_url.c_str());
+                                }
+                            }
+                            
+                            if (removed) {
+                                // 将更改保存到repo.ls文件
+                                std::string repo_file = home_dir + "/duckshell/repo.ls";
+                                if (std::ofstream file(repo_file); file.is_open()) {
+                                    for (const auto& url : urls) {
+                                        file << url << std::endl;
+                                    }
+                                    file.close();
+                                } else {
+                                    println("Error: Could not save repository list to file.");
+                                }
+                            } else {
+                                println("Repository not found: " << cmd[3].c_str());
+                            }
+                        }
+                    }
+                } else if (cmd[2] == "list" || cmd[2] == "ls") {
+                    // 显示所有仓库URL
+                    println("Repository URLs (in priority order): ");
+                    auto& urls = PluginLoader::repository_urls();
+                    int index = 1;
+                    for (const auto& url : urls) {
+                        println("  " << index << ". " << url.c_str());
+                        index++;
+                    }
+                } else if (cmd[2] == "priority" || cmd[2] == "pri") {
+                    if (cmd.size() < 4) {
+                        println("Usage: plugin repo priority <from_index> <to_index>");
+                        println("Example: plugin repo priority 3 1  (move 3rd repo to 1st position)");
+                    } else {
+                        try {
+                            int from_idx = std::stoi(cmd[3]) - 1; // 转换为0基索引
+                            int to_idx = std::stoi(cmd[4]) - 1;   // 转换为0基索引
+                            
+                            auto& urls = PluginLoader::repository_urls();
+                            
+                            if (from_idx < 0 || from_idx >= static_cast<int>(urls.size()) || 
+                                to_idx < 0 || to_idx >= static_cast<int>(urls.size())) {
+                                println("Error: Index out of range.");
+                                return 0;
+                            }
+                            
+                            if (from_idx == to_idx) {
+                                println("Source and destination are the same.");
+                                return 0;
+                            }
+                            
+                            // 获取要移动的元素
+                            auto it_from = urls.begin();
+                            std::advance(it_from, from_idx);
+                            std::string moved_url = *it_from;
+                            
+                            // 删除原位置的元素
+                            urls.erase(it_from);
+                            
+                            // 在新位置插入元素
+                            auto it_to = urls.begin();
+                            std::advance(it_to, to_idx);
+                            urls.insert(it_to, moved_url);
+                            
+                            // 保存更改到文件
+                            std::string repo_file = home_dir + "/duckshell/repo.ls";
+                            std::ofstream file(repo_file);
+                            if (file.is_open()) {
+                                for (const auto& url : urls) {
+                                    file << url << std::endl;
+                                }
+                                file.close();
+                                println("Priority updated: Moved repository from position " << (from_idx + 1) << " to position " << (to_idx + 1));
+                            } else {
+                                println("Error: Could not save repository list to file.");
+                            }
+                        } catch (const std::invalid_argument&) {
+                            println("Error: Invalid index format. Please use numbers only.");
+                        }
+                    }
+                } else {
+                    // 设置主要仓库URL（向后兼容）
+                    PluginManager::setRepositoryUrl(cmd[2]);
+                }
             }
         }
         else {
             println("Unknown plugin command: " << cmd[1].c_str());
             println("Usage: plugin <command> [args...]\n");
             println("Commands: install-all, list, run, install, uninstall, remove, enable, disable, available, download, repo\n");
+            println("Repo subcommands: add, remove/rm, list/ls, priority/pri\n");
+            println("Repo priority usage: plugin repo priority <from_index> <to_index>\n");
         }
         return 0;
     }

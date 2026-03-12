@@ -2,6 +2,7 @@
 #include "plugin_loader.h"
 #include "plugin_installer.h"
 #include "../global_vars.h"
+#include <functional>
 #include <iostream>
 #include <fstream>
 #include <set>
@@ -67,148 +68,162 @@ void PluginRepository::set_repository_url(const std::string& url) {
 
 // 新增功能：列出远程插件
 void PluginRepository::list_remote_plugins() {
-    if (PluginLoader::repository_url().empty()) return;
+    // 尝试所有仓库URL直到找到一个可用的
+    auto operation = [](const std::string& repo_url) -> bool {
+        // 访问我们设计的 PyPI 风格索引页
+        std::string index_url = repo_url + "/metadata/index.html";
+        std::string temp_html = home_dir + "/duckshell/temp_index.html";
 
-    // 访问我们设计的 PyPI 风格索引页
-    std::string index_url = PluginLoader::repository_url() + "/metadata/index.html";
-    std::string temp_html = home_dir + "/duckshell/temp_index.html";
+        if (internal_download(index_url, temp_html)) {
+            std::ifstream file(temp_html);
+            std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            file.close();
+            remove(temp_html.c_str());
 
-    if (internal_download(index_url, temp_html)) {
-        std::ifstream file(temp_html);
-        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        file.close();
-        remove(temp_html.c_str());
+            //println("--- Remote Plugin Repository ---");
 
-        //println("--- Remote Plugin Repository ---");
+            remote_plugin_paths.clear();
 
-        remote_plugin_paths.clear();
-
-        // 使用正则或简单的字符串查找抓取 <a> 标签
-        // 格式预期：<a href="/plugins/test-plugin/">test-plugin</a>
-        size_t pos = 0;
-        bool found = false;
-        while ((pos = content.find("<a href=\"", pos)) != std::string::npos) {
-            size_t href_start = pos + 9; // strlen("<a href=\"")
-            size_t href_end = content.find("\"", href_start);
-            
-            if (href_end != std::string::npos) {
-                std::string href = content.substr(href_start, href_end - href_start);
+            // 使用正则或简单的字符串查找抓取 <a> 标签
+            // 格式预期：<a href="/plugins/test-plugin/">test-plugin</a>
+            size_t pos = 0;
+            bool found = false;
+            while ((pos = content.find("<a href=\"", pos)) != std::string::npos) {
+                size_t href_start = pos + 9; // strlen("<a href=\"")
+                size_t href_end = content.find("\"", href_start);
                 
-                size_t name_start = content.find(">", href_end) + 1;
-                size_t name_end = content.find("</a>", name_start);
-                
-                if (name_start != std::string::npos && name_end != std::string::npos) {
-                    std::string name = content.substr(name_start, name_end - name_start);
-                    //println("  * " << name.c_str());
-                    remote_plugin_paths[name] = href;
-                    found = true;
+                if (href_end != std::string::npos) {
+                    std::string href = content.substr(href_start, href_end - href_start);
+                    
+                    size_t name_start = content.find(">", href_end) + 1;
+                    size_t name_end = content.find("</a>", name_start);
+                    
+                    if (name_start != std::string::npos && name_end != std::string::npos) {
+                        std::string name = content.substr(name_start, name_end - name_start);
+                        //println("  * " << name.c_str());
+                        remote_plugin_paths[name] = href;
+                        found = true;
+                    }
+                    pos = name_end;
+                } else {
+                    pos = href_start;
                 }
-                pos = name_end;
-            } else {
-                pos = href_start;
             }
+            if(!found) println(" (No plugins found in index)");
+            return true; // 成功
         }
-        if(!found) println(" (No plugins found in index)");
-    } else {
-        println("Failed to connect to repository index.");
+        return false; // 失败
+    };
+    
+    // 使用多仓库回退机制
+    if (!try_repository_with_fallback(operation)) {
+        println("Failed to connect to any repository index.");
     }
 }
 
 // 新增功能：下载插件
 void PluginRepository::download_plugin(const std::string& plugin_name) {
-    if (PluginLoader::repository_url().empty()) return;
-
     // 如果还没有加载过列表，或者找不到该插件，先尝试加载一次
     if (remote_plugin_paths.find(plugin_name) == remote_plugin_paths.end()) {
         println("Plugin info not in cache, fetching index...");
         list_remote_plugins();
     }
 
-    std::string base_url;
-    if (remote_plugin_paths.find(plugin_name) != remote_plugin_paths.end()) {
-        std::string path = remote_plugin_paths[plugin_name];
-        // 拼接完整 URL。注意：如果 href 是绝对路径（以 http 开头），则直接使用
-        if (path.find("http") == 0) {
-            base_url = path;
-        } else {
-            // 否则拼接到 repository_url
-            // 确保没有双斜杠
-            std::string repo = PluginLoader::repository_url();
-            if (!repo.empty() && repo.back() == '/' && !path.empty() && path.front() == '/') {
-                base_url = repo + path.substr(1);
-            } else if (!repo.empty() && repo.back() != '/' && !path.empty() && path.front() != '/') {
-                base_url = repo + "/" + path;
+    // 定义下载插件的函数，用于多仓库尝试
+    auto download_operation = [plugin_name](const std::string& repo_url) -> bool {
+        std::string base_url;
+        if (remote_plugin_paths.find(plugin_name) != remote_plugin_paths.end()) {
+            std::string path = remote_plugin_paths[plugin_name];
+            // 拼接完整 URL。注意：如果 href 是绝对路径（以 http 开头），则直接使用
+            if (path.find("http") == 0) {
+                base_url = path;
             } else {
-                base_url = repo + path;
+                // 否则拼接到 repository_url
+                // 确保没有双斜杠
+                std::string repo = repo_url;  // 使用当前尝试的仓库URL
+                if (!repo.empty() && repo.back() == '/' && !path.empty() && path.front() == '/') {
+                    base_url = repo + path.substr(1);
+                } else if (!repo.empty() && repo.back() != '/' && !path.empty() && path.front() != '/') {
+                    base_url = repo + "/" + path;
+                } else {
+                    base_url = repo + path;
+                }
             }
+            // 如果 path 以 / 结尾，去掉它，因为后面会加 /plugin.json
+            if (!base_url.empty() && base_url.back() == '/') {
+                base_url.pop_back();
+            }
+        } else {
+            // 回退到原有的硬编码逻辑（兼容模式）
+            base_url = repo_url + "/plugins/" + plugin_name;
         }
-        // 如果 path 以 / 结尾，去掉它，因为后面会加 /plugin.json
-        if (!base_url.empty() && base_url.back() == '/') {
-            base_url.pop_back();
+
+        // 1. 准備元数据路径
+        std::string meta_url = base_url + "/plugin.json";
+        std::string temp_json = home_dir + "/duckshell/temp_meta.json";
+
+        println("Fetching metadata: " << meta_url.c_str());
+
+        // 2. 下载并解析 JSON
+        if (!internal_download(meta_url, temp_json)) {
+            println(RED << "Error: Could not reach repository or plugin not found in " << repo_url << RESET);
+            return false;
         }
-    } else {
-        // 回退到原有的硬编码逻辑（兼容模式）
-        base_url = PluginLoader::repository_url() + "/plugins/" + plugin_name;
-    }
 
-    // 1. 准备元数据路径
-    std::string meta_url = base_url + "/plugin.json";
-    std::string temp_json = home_dir + "/duckshell/temp_meta.json";
+        try {
+            std::ifstream f(temp_json);
+            json j = json::parse(f);
+            f.close();
+            // remove(temp_json.c_str()); // 调试阶段可以先不删
 
-
-    println("Fetching metadata: " << meta_url.c_str());
-
-    // 2. 下载并解析 JSON
-    if (!internal_download(meta_url, temp_json)) {
-        println(RED << "Error: Could not reach repository or plugin not found." << RESET);
-        return;
-    }
-
-    try {
-        std::ifstream f(temp_json);
-        json j = json::parse(f);
-        f.close();
-        // remove(temp_json.c_str()); // 调试阶段可以先不删
-
-        // 3. 确定平台后缀
+            // 3. 确定平台后缀
 #ifdef _WIN32
-        std::string current_platform = "windows";
-        std::string ext = ".dll";
+            std::string current_platform = "windows";
+            std::string ext = ".dll";
 #else
-        std::string current_platform = "linux";
-        std::string ext = ".so";
+            std::string current_platform = "linux";
+            std::string ext = ".so";
 #endif
 
-        if (!j["platforms"].contains(current_platform) || j["platforms"][current_platform] == false) {
-            println(RED << "Error: Plugin does not support " << current_platform << RESET);
-            return;
+            if (!j["platforms"].contains(current_platform) || j["platforms"][current_platform] == false) {
+                println(RED << "Error: Plugin does not support " << current_platform << RESET);
+                return false;
+            }
+
+            // 4. 版本号与路径处理 (包含 'v' 前缀容错)
+            std::string version = j["latest_version"];
+            std::string version_path = version;
+            if (!version_path.empty() && version_path[0] != 'v' && version_path[0] != 'V') {
+                version_path = "v" + version;
+            }
+
+            // 5. 执行二进制下载
+            // 结构: .../plugins/PluginName/v1.0/PluginName.dll
+            std::string binary_url = base_url + "/" + version_path + "/" + plugin_name + ext;
+            std::string local_path = home_dir + "/duckshell/plugins/" + plugin_name + ext;
+
+            println("Found version " << version << ". Downloading binary...");
+
+            if (internal_download(binary_url, local_path)) {
+                println(GREEN << "Successfully installed: " << plugin_name << RESET);
+                PluginInstaller::install_all_plugins(); // 刷新内存中的插件映射
+                return true;  // 成功下载
+            }
+            else {
+                println(RED << "Error: Failed to download binary file." << RESET);
+                return false;  // 下载失败
+            }
+
         }
-
-        // 4. 版本号与路径处理 (包含 'v' 前缀容错)
-        std::string version = j["latest_version"];
-        std::string version_path = version;
-        if (!version_path.empty() && version_path[0] != 'v' && version_path[0] != 'V') {
-            version_path = "v" + version;
+        catch (const std::exception& e) {
+            println(RED << "JSON/Logic Error: " << e.what() << RESET);
+            return false;  // 解析失败
         }
-
-        // 5. 执行二进制下载
-        // 结构: .../plugins/PluginName/v1.0/PluginName.dll
-        std::string binary_url = base_url + "/" + version_path + "/" + plugin_name + ext;
-        std::string local_path = home_dir + "/duckshell/plugins/" + plugin_name + ext;
-
-        println("Found version " << version << ". Downloading binary...");
-
-        if (internal_download(binary_url, local_path)) {
-            println(GREEN << "Successfully installed: " << plugin_name << RESET);
-            PluginInstaller::install_all_plugins(); // 刷新内存中的插件映射
-        }
-        else {
-            println(RED << "Error: Failed to download binary file." << RESET);
-        }
-
-    }
-    catch (const std::exception& e) {
-        println(RED << "JSON/Logic Error: " << e.what() << RESET);
+    };
+    
+    // 使用多仓库回退机制尝试下载插件
+    if (!try_repository_with_fallback(download_operation)) {
+        println(RED << "Error: Could not download plugin from any repository." << RESET);
     }
 }
 

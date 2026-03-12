@@ -42,6 +42,11 @@ int main(int argc, char **argv) {
         outfile << "// duckshell plugins list" << std::endl;
         outfile << "// Do not change this file!" << std::endl;
         outfile.close();
+
+        // 以及仓库文件
+        std::ofstream outfile_repo(duckshell_dir + "/repo.ls");
+        outfile_repo << "// DuckShell repository list" << std::endl;
+        outfile_repo << "// Do not change this file!" << std::endl;
     }
     else {
         // 目录已存在，检查插件列表文件和插件目录
@@ -51,6 +56,12 @@ int main(int argc, char **argv) {
             outfile << "// DuckShell plugins list" << std::endl;
             outfile << "// Do not change this file!" << std::endl;
             outfile.close();
+
+            // 以及仓库文件
+            std::ofstream outfile_repo(duckshell_dir + "/repo.ls");
+            outfile_repo << "// DuckShell repository list" << std::endl;
+            outfile_repo << "// Do not change this file!" << std::endl;
+
         }
 
         if (stat(plugins_dir.c_str(), &info) != 0) {

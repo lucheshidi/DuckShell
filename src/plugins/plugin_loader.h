@@ -18,6 +18,7 @@ public:
     static std::vector<std::string> get_directory_contents(const std::string& path);
 
     static std::string& repository_url() { return plugin_repository_url; }
+    static std::list<std::string>& repository_urls() { return plugin_repository_urls; }
     static std::map<std::string, bool>& installed_plugins() { return plugin_installed_plugins; }
     static std::map<std::string, std::string>& command_to_plugin_map() { return plugin_command_to_plugin_map; }
 };
