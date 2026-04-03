@@ -1,10 +1,4 @@
 # CMake Cache and Build Files
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
-.cmake/
-_deps/
 *.exe
 *.a
 *.o
@@ -12,8 +6,8 @@ _deps/
 *.dll
 *.so
 *.dylib
-generated/
 build/
 .idea/
 DuckShell.exe
-libminizip.a
+debug/
+release/
