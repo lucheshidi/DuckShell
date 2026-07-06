@@ -1,12 +1,15 @@
-# 🦆 DuckShell (DUCKSHELL)
+# LucheShell
 
-[![Windows Build](https://github.com/lucheshidi/DuckShell/actions/workflows/windows.yml/badge.svg)](https://github.com/lucheshidi/DuckShell/actions/workflows/windows.yml)
-[![Linux Build](https://github.com/lucheshidi/DuckShell/actions/workflows/linux.yml/badge.svg)](https://github.com/lucheshidi/DuckShell/actions/workflows/linux.yml)
-[![macOS Build](https://github.com/lucheshidi/DuckShell/actions/workflows/macos.yml/badge.svg)](https://github.com/lucheshidi/DuckShell/actions/workflows/macos.yml)
+[![Windows Build](https://github.com/lucheshidi/LucheShell/actions/workflows/windows.yml/badge.svg)](https://github.com/lucheshidi/LucheShell/actions/workflows/windows.yml)
+[![Linux Build](https://github.com/lucheshidi/LucheShell/actions/workflows/linux.yml/badge.svg)](https://github.com/lucheshidi/LucheShell/actions/workflows/linux.yml)
+[![macOS Build](https://github.com/lucheshidi/LucheShell/actions/workflows/macos.yml/badge.svg)](https://github.com/lucheshidi/LucheShell/actions/workflows/macos.yml)
 
 ***English*** | [简体中文](README_zh-CN.md)
 
-DuckShell is a lightweight, cross-platform, and highly extensible modern shell. It aims to provide developers with a simple yet feature-rich command-line environment through a powerful C++ plugin system.
+>[!WARNING]
+>DuckShell has now renamed to LucheShell
+
+LucheShell is a lightweight, cross-platform, and highly extensible modern shell. It aims to provide developers with a simple yet feature-rich command-line environment through a powerful C++ plugin system.
 
 ## 🌟 Key Features
 
@@ -18,7 +21,7 @@ DuckShell is a lightweight, cross-platform, and highly extensible modern shell. 
 
 ## 📥 Installation Guide
 
-You can download the pre-compiled binaries for your platform from the [Latest Release](https://github.com/lucheshidi/DuckShell/releases/latest) page.
+You can download the pre-compiled binaries for your platform from the [Latest Release](https://github.com/lucheshidi/LucheShell/releases/latest) page.
 
 ### Supported Architectures
 - **Windows**: `x86_64` (MinGW), `ARM64` (Clang)
@@ -27,7 +30,7 @@ You can download the pre-compiled binaries for your platform from the [Latest Re
 
 ## 🛠️ Compilation Instructions
 
-DuckShell now implements automated dependency management; you don't need to manually install `zlib` or `minizip`.
+LucheShell now implements automated dependency management; you don't need to manually install `zlib` or `minizip`.
 
 ### Prerequisites
 - CMake (>= 3.15)
@@ -47,8 +50,8 @@ cmake --build build
 
 ## 🚀 Usage
 
-- **Windows**: Run `DuckShell.exe` directly.
-- **Unix-like**: Run `./DuckShell`.
+- **Windows**: Run `LucheShell.exe` directly.
+- **Unix-like**: Run `./LucheShell`.
 
 ### Common Commands
 - `help`: Display help information.
@@ -59,7 +62,7 @@ cmake --build build
 
 The essence of DuckShell lies in its plugins.
 
-- **Installing Plugins**: Place compiled plugins (`.dll` / `.so` / `.dylib`) into the `~/duckshell/plugins/` directory.
+- **Installing Plugins**: Place compiled plugins (`.dll` / `.so` / `.dylib`) into the `~/lucheshell/plugins/` directory.
 - **Remote Download**: Supports automatic download and extraction of plugins from configured repositories (relying on automated minizip integration).
 - **Writing Plugins**: Refer to the `ExamplePlugins/HelloWorld` example, use the interface defined in `plugins_interface.h` to get started quickly.
 
@@ -75,4 +78,4 @@ We welcome any form of contribution!
 
 ---
 
-*DuckShell - Making the command line simple again.*
+*LucheShell - Making the command line simple again.*
